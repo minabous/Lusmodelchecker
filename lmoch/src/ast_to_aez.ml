@@ -3,21 +3,21 @@ open Aez
 
 let input_to_aez input =
   match input with
-  | (x, ty, _) -> (T_Sym x, ty)
+  | (x, ty) -> (T_Sym x, ty)
   | _ -> failwith "ast_to_aez::input_to_aez::Not a correct input"
      (*  | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented" *)
 
 
 let output_to_aez output =
   match output with
-  | (x, ty, _) -> (T_Sym x, ty)
+  | (x, ty) -> (T_Sym x, ty)
   | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte output"
 
 
 let local_to_aez local =
   match local with
-  | (x, ty, _) -> (T_Sym x, ty)
-  | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte output"
+  | (x, ty) -> (T_Sym x, ty)
+  | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte local variable"
 
 let equs_to_aez equs =
   match equs with
@@ -47,6 +47,9 @@ let ast_to_astaez texpr =
   }
 
 
+
+let compile_to_alt_ergo faez =
+  
 let to_aez ast_node =
   let faez = List.map ast_to_astaez ast_node;
   failwith "ast_to_aez::to_aez::Under Implementation"; 
