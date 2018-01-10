@@ -6,7 +6,8 @@ exception Compilation_Terminated of int
   
 
 let compile_node n =
-  let s1 =  
+  let s1 = sprintf "%s" n.name.name in
+  let s2 = sprintf "%s" 
 
 
 
