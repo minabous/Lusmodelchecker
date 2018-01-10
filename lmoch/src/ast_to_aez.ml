@@ -36,8 +36,8 @@ let ast_to_astaez texpr =
     List.map local_to_aez texpr.tn_local in
   let equs = (* TODO *)
     List.map equs_to_aez texpr.equs in
-  let loc = (* TODO *)
-    List.map loc_to_aez texpr.tn_loc in
+  let loc = (* DONE *)
+    texpr.tn_loc in
   { node_name = name;
     node_input = input;
     node_output = output;
@@ -49,6 +49,7 @@ let ast_to_astaez texpr =
 
 
 let compile_to_alt_ergo faez =
+  failwith "ast_to_aez::compile_to_alt_ergo::Not Implemented"
   
 let to_aez ast_node =
   let faez = List.map ast_to_astaez ast_node;
@@ -71,7 +72,6 @@ let to_aez ast_node =
      | Ident
      | Op of op * pexpr list
      | ...(cf parse_ast.ml)
-
 
      Donc une équation c'est une affectation = une expression
      patt = pexpr
