@@ -58,7 +58,7 @@ let () =
   let lb = Lexing.from_channel c in
   try
     let f = Parser.file Lexer.token lb in
-    close_in c;
+!    close_in c;
     if !parse_only then exit 0;
     let ft = Typing.type_file f main_node in
     if !verbose then begin
@@ -72,7 +72,8 @@ let () =
 
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
-
+    let formula = Ast_to_aez.to_aez ft;
+      Ast_to_aez.compile_to_alt_ergo formula;
     exit 0
   with
     | Lexical_error s ->
