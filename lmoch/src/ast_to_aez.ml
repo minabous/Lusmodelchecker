@@ -1,15 +1,31 @@
 open Aez
 
 
-
-
-
 let input_to_aez input =
   match input with
-    | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented"
+  | (x, ty) -> (T_Sym x, ty)
+  | _ -> failwith "ast_to_aez::input_to_aez::Not a correcte input"
+     (*  | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented" *)
 
 
+let output_to_aez output =
+  match output with
+  | (x, ty) -> (T_Sym x, ty)
+  | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte output"
 
+
+let local_to_aez local =
+  match local with
+  | (x, ty) -> (T_Sym x, ty)
+  | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte output"
+
+let equs_to_aez equs =
+  match equs with
+  |
+  | _ -> faiwith""
+
+
+  
 let ast_to_astaez texpr =
   let name =
     tnode.name in
