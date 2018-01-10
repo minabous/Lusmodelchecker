@@ -53,4 +53,48 @@ let compile_to_alt_ergo faez =
 let to_aez ast_node =
   let faez = List.map ast_to_astaez ast_node;
   failwith "ast_to_aez::to_aez::Under Implementation"; 
-(* TODO *)    compile_to_alt_ergo faez
+  (* TODO *)    compile_to_alt_ergo faez;
+
+
+
+  (* Je pense avoir ce que patt signifie:
+     dans le cas des equs:
+     Une equation est un enregistrement de 
+     { patt ,  pexpr }
+     avec patt = 
+     { PP_ident of ident (variable Seul) 
+     | PP_tuple of ident list (Tuple)),
+                location }
+     avec pexpr = { p_expr_descr , location }
+     p_expr_descr =
+     | Constant
+     | Ident
+     | Op of op * pexpr list
+     | ...(cf parse_ast.ml)
+
+
+     Donc une équation c'est une affectation = une expression
+     patt = pexpr
+     Exemple:
+     x = 5 * 2 + pre(z)
+
+     Ici x = patt de type:
+     { PP_ident(x), location }
+
+     Et 5 * 2 + pre(z) = pexpr de la forme: 
+     PE_op(PLUS, [PE_op(MUL, [5; 2]); PE_pre(PE_ident(z))]
+     
+     Autre exemple:
+     (n1, n2) = (f -> pre(t), 6 * 7)
+
+     ici (n1, n2) = patt de type:
+     { PP_tuple([n1; n2]), location}
+
+     Et (f->pre(t), 6 * 7) = pexpr de la forme
+     PE_tuple ([PE_arrow(f, PE_pre(t)); 
+                PE_op(MUL, [PE_const(Cint(6)); PE_const(Cint(7))])
+                ])
+     
+     En espérant avoir éclairé un peu plus la compréhension du code
+     Tu peux laisser des commentaires des suggestions etc.
+   *)
