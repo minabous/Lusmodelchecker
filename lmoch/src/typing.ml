@@ -476,7 +476,7 @@ let check_main ft main =
   match ty, is_prim with
   | (_, [Tbool]), false -> ()
   | (t_in, t_out), false ->
-      let n = List.find (fun n -> n.tn_name.Ident.name = main) (List.rev ft) in
+     let n = List.find (fun n -> n.tn_name.Ident.name = main) (List.rev ft) in
       error n.tn_loc (BadMain (t_in, t_out))
   | _ -> errors dummy_loc "The main node cannot be a primitive function"
 
