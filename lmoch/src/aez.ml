@@ -1,7 +1,6 @@
-type constant =Asttypes.const
-
-
-type term_op= Op_plus |  Op_minus | Op_times |  Op_div |  Op_mod
+type constant = Asttypes.const
+              
+type term_op = Op_plus |  Op_minus | Op_times |  Op_div | Op_mod
 
 type comparison = Cmp_eq | Cmp_neq | Cmp_lt | Cmp_leq
 

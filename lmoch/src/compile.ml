@@ -1,10 +1,9 @@
 open Asttype
 open Astc
 exception Enf_of_List
-
 exception Compilation_Terminated of int
 
-let compile_input i =
+let compile_var i =
   let s =
     match i with
     | (x, ty) ->
@@ -27,11 +26,11 @@ let rec construe code name =
       | s :: tl ->
          match s with
          | Name(name) -> start_struct name
-         | Ivar(var) -> compile_input var
-         | Ovar(var) -> compile_output var
-         | Lvar(var) -> compile_input var
-         | Step(ivl) ->
-         | Reset
+         | Ivar(var) -> compile_var var
+         | Ovar(var) -> compile_var var
+         | Lvar(var) -> compile_var var
+         | Step(ivl, ov) ->
+         | Reset -> 
       end
   in
   List.fold_left

@@ -1,16 +1,32 @@
 open Aez
+open Smt
 
-
+(*
 let input_to_aez input =
   match input with
-  | (x, ty) -> (T_Sym x, ty)
+  | (x, ty) -> (x, ty)
   | _ -> failwith "ast_to_aez::input_to_aez::Not a correct input"
      (*  | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented" *)
+ *)
 
-
+let declare_symbol name t_in t_out =
+  let x = Hstring.make name in
+  Symbol.declare x t_in t_out;
+  x
+   
+let var_aez input =
+  match input with
+  | (x, ty) ->
+     match ty with
+     | Tbool -> declare_symbol x [Type.type_int] Type.type_bool
+     | Tint  -> declare_symbol x [Type.type_int] Type.type_int
+     | Treal -> declare_symbol x [Type.type_int] Type.type_real
+     | _ -> failwith "ast_to_aez::input_to_aez::Unknown type"
+     (*  | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented" *)
+ (*
 let output_to_aez output =
   match output with
-  | (x, ty) -> (T_Sym x, ty)
+  | (x, ty) -> (x, ty)
   | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte output"
 
 
@@ -18,24 +34,31 @@ let local_to_aez local =
   match local with
   | (x, ty) -> (T_Sym x, ty)
   | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte local variable"
+ *)
 
-let equs_to_aez equs =
-  match equs with
-  | _ -> faiwith ""
-
-
+let equs_aez equs =
+  let f1 =
+    match equs.teq_patt.tpatt_ with
+    | 
+      Formula.make_lit Formula.Eq
+        [ Term.make_app equs.teq_patt.
+          
+          
+          
+        ]
+  
   
 let ast_to_astaez texpr =
   let name =
     tnode.name in
   let input = (* DONE *)
-    List.map input_to_aez texpr.tn_input in
+    List.map var_aez texpr.tn_input in
   let output = (* DONE *)
-    List.map output_to_aez texpr.tn_output in
+    List.map var_aez texpr.tn_output in
   let local = (* DONE *)
-    List.map local_to_aez texpr.tn_local in
+    List.map var_aez texpr.tn_local in
   let equs = (* TODO *)
-    List.map equs_to_aez texpr.equs in
+    List.map equs_to_aez texpr.tn_equs in
   let loc = (* DONE *)
     texpr.tn_loc in
   { node_name = name;
@@ -53,8 +76,8 @@ let compile_to_alt_ergo faez =
   
 let to_aez ast_node =
   let faez = List.map ast_to_astaez ast_node;
-  failwith "ast_to_aez::to_aez::Under Implementation"; 
-  (* TODO *)    compile_to_alt_ergo faez;
+             failwith "ast_to_aez::to_aez::Under Implementation"; 
+             (* TODO *)    compile_to_alt_ergo faez
 
 
 
