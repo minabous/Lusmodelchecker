@@ -21,8 +21,8 @@ let var_aez input =
      | Tbool -> declare_symbol x [Type.type_int] Type.type_bool
      | Tint  -> declare_symbol x [Type.type_int] Type.type_int
      | Treal -> declare_symbol x [Type.type_int] Type.type_real
-     | _ -> failwith "ast_to_aez::input_to_aez::Unknown type"
-     (*  | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented" *)
+     | _ -> failwith "ast_to_aez::var_aez::Unknown type\n Type Has to be int, bool float"
+(*  | _ -> failwith "ast_to_aez::input_to_aez::Not Implemented" *)
  (*
 let output_to_aez output =
   match output with
@@ -34,19 +34,40 @@ let local_to_aez local =
   match local with
   | (x, ty) -> (T_Sym x, ty)
   | _ -> failwith "ast_to_aez::output_to_aez::Not a correcte local variable"
- *)
+  *)
 
+(* Eventuellement faire cette transformation 
+ avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
+let create_couple_var_ty var ty =
+  (var, ty)
+
+(* Ici pour chaque Patt = expr, on renvoit une Formula
+   afin de construire la liste des formules à prouver
+*)
+let for_each_pattern_his_eq equs expr =
+end
+
+
+(* Cette fonction créée la liste des formules pour construire
+ le raisonnement kind par la suite. *)
 let equs_aez equs =
-  let f1 =
-    match equs.teq_patt.tpatt_ with
-    | 
-      Formula.make_lit Formula.Eq
+  let vars = equs.teq_patt.tpatt_desc
+  and tys = equs.teq_patt.tpatt_ty in
+  let pattern = List.map2 create_tuple_var_ty vars tys  
+    let expressions =
+      match equs.teq_expr as e with
+      | TE_tuple(el) -> el
+      | _ -> [e]
+    in
+    let equations =
+      List.map (for_each_pattern_his_eq equs) expressions
+        Formula.make_lit Formula.Eq
         [ Term.make_app equs.teq_patt.
           
           
           
         ]
-  
+      
   
 let ast_to_astaez texpr =
   let name =
@@ -58,7 +79,7 @@ let ast_to_astaez texpr =
   let local = (* DONE *)
     List.map var_aez texpr.tn_local in
   let equs = (* TODO *)
-    List.map equs_to_aez texpr.tn_equs in
+    List.flatten (List.map equs_aez texpr.tn_equs) in
   let loc = (* DONE *)
     texpr.tn_loc in
   { node_name = name;
