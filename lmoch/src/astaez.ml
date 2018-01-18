@@ -43,31 +43,38 @@ let create_couple_var_ty var ty =
 
 (* Ici pour chaque Patt = expr, on renvoit une Formula
    afin de construire la liste des formules à prouver
-*)
-let for_each_pattern_his_eq equs expr =
-end
-
+ *)
+  
+let create_application var expr n =
+  let varn = Eta.find var env in
+  match expr with
+  | TE_const(c) ->
+     let const =
+       match c with
+       (* | Cbool(b) -> Term.make_bool (Num.) *)
+       | Cint(i) -> Term.make_int (Num.int i)
+       (* | Creal(f) -> Term.make_real (Num.float_of_num f) *)
+       | _ -> failwith "ast_to_aez::for_each_pattern_his_eq::Unknown constant type (only int are available yet)"
+     in
+     (function -> Formula.make_lit Formula.eq
+                    [ Term.make_app varn [n] ;                
+                    ]
+     )
 
 (* Cette fonction créée la liste des formules pour construire
  le raisonnement kind par la suite. *)
 let equs_aez equs =
   let vars = equs.teq_patt.tpatt_desc
   and tys = equs.teq_patt.tpatt_ty in
-  let pattern = List.map2 create_tuple_var_ty vars tys  
-    let expressions =
-      match equs.teq_expr as e with
-      | TE_tuple(el) -> el
-      | _ -> [e]
-    in
-    let equations =
-      List.map (for_each_pattern_his_eq equs) expressions
-        Formula.make_lit Formula.Eq
-        [ Term.make_app equs.teq_patt.
-          
-          
-          
-        ]
-      
+  let pattern = List.map2 create_tuple_var_ty vars tys in
+  let expressions =
+    match equs.teq_expr as e with
+    | TE_tuple(el) -> el
+    | _ -> [e]
+  in
+  let equations =
+    List.map2 create_application pattern expressions
+    
   
 let ast_to_astaez texpr =
   let name =
@@ -79,7 +86,7 @@ let ast_to_astaez texpr =
   let local = (* DONE *)
     List.map var_aez texpr.tn_local in
   let equs = (* TODO *)
-    List.flatten (List.map equs_aez texpr.tn_equs) in
+    List.map equs_aez texpr.tn_equs in
   let loc = (* DONE *)
     texpr.tn_loc in
   { node_name = name;
