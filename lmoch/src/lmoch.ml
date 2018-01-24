@@ -69,7 +69,7 @@ let () =
     end;
     if !type_only then exit 0;
     if main_node = "" then exit 0;
-
+    Transform_aez.aezdify tf;
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
     (* let formula = Ast_to_aez.to_aez ft;
