@@ -132,13 +132,13 @@ let make_formula var expr =
 
 (* Cette fonction créée la liste des formules pour construire
  le raisonnement kind par la suite. *)
-let equs_aez equs =
-  let vars = equs.teq_patt.tpatt_desc
-  and tys = equs.teq_patt.tpatt_ty in
-  let pattern = List.map2 create_tuple_var_ty vars tys in
+let equs_aez (equs: Typed_ast.t_equation) =
+  let vars = equs.teq_patt.tpatt_desc in
+  let tys = equs.teq_patt.tpatt_type in
+  let pattern = List.map2 create_couple_var_ty vars tys in
   let expressions =
-    match equs.teq_expr with
-    | TE_tuple(el) -> el
+    match equs.teq_expr.texpr_desc with
+    | Typed_ast.TE_tuple(el) -> el
     | _ -> [equs.teq_expr]
   in
   List.map2 make_formula pattern expressions
@@ -154,7 +154,7 @@ let ast_to_astaez texpr =
   let local = (* DONE *)
     List.map var_aez texpr.tn_local in
   let equs = (* TODO *)
-    List.map make_formula texpr.tn_equs in
+    List.map equs_aez texpr.tn_equs in
   let loc = (* DONE *)
     texpr.tn_loc in
   { node_name = name;
