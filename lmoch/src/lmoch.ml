@@ -69,11 +69,10 @@ let () =
     end;
     if !type_only then exit 0;
     if main_node = "" then exit 0;
+    (* XXX TODO XXX *)
     Transform_aez.aezdify tf;
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
-    (* let formula = Ast_to_aez.to_aez ft;
-     *   Ast_to_aez.compile_to_alt_ergo formula; *)
     exit 0
   with
     | Lexical_error s ->

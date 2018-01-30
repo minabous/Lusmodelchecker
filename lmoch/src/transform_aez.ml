@@ -1,3 +1,4 @@
+open Typed_aez
 open Aez
 open Smt
 open Num
@@ -12,35 +13,35 @@ let input_to_aez input =
 
 module Iota = Map.Make(String)
 type iota = Hstring.t Iota.t
-let env = Iota.empty
+let symboles = Iota.empty
         
 let declare_symbol name t_in t_out =
   let x = Hstring.make name in
   Symbol.declare x t_in t_out;
-  ignore (Iota.add name x env);
+  ignore (Iota.add name x symboles);
   x
    
-let var_aez input =
+let var_aez (input : Ident.t * Asttypes.base_ty) =
   match input with
-  | (x, ty) ->
+  | (v, ty) ->
      match ty with
-     | Asttypes.Tbool -> declare_symbol x [Type.type_int] Type.type_bool
-     | Asttypes.Tint  -> declare_symbol x [Type.type_int] Type.type_int
-     | Asttypes.Treal -> declare_symbol x [Type.type_int] Type.type_real
+     | Asttypes.Tbool -> (declare_symbol v.name [Type.type_int] Type.type_bool, ty)
+     | Asttypes.Tint  -> (declare_symbol v.name [Type.type_int] Type.type_int, ty)
+     | Asttypes.Treal -> (declare_symbol v.name [Type.type_int] Type.type_real, ty)
      | _ -> failwith "ast_to_aez::var_aez::Unknown type\n Type Has to be int, bool float"
 
 
           
 (* Eventuellement faire cette transformation 
  avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
-let create_couple_var_ty var ty =
-  (var, ty)
+let create_couple_var_ty (var:Ident.t) (ty: Asttypes.base_ty) =
+  (Iota.find var.name symboles, ty)
   
 (* Ici pour chaque Patt = expr, on renvoit une Formula
    afin de construire la liste des formules à prouver
  *)
-  
-let make_term exprl =
+
+let make_term (expr: Typed_ast.t_expr_desc) =
 (*
   match exprl with
   | [] -> failwith "transform_aez::make_term:: No expression in list"
@@ -48,7 +49,7 @@ let make_term exprl =
      begin
      end
  *)
-  match exprl with
+  match expr with
   | Typed_ast.TE_const(c) ->
      match c with
      | Cbool(b) ->
@@ -123,40 +124,43 @@ let make_term exprl =
      end
    *)
      
-let make_formula var expr =
-  let varx = Iota.find var env in
+let make_formula (varty: Aez.Smt.Symbol.t * Asttypes.base_ty) (expr: Typed_ast.t_expr) =
+  let var_symbol = (fst varty) in
   (fun n -> Formula.make_lit Formula.Eq
-                 [ Term.make_app varx [n] ; make_term expr ])
+                 [ Term.make_app var_symbol [Term.make_int (Num.Int n)] ; make_term expr.texpr_desc ])
   
-
 
 (* Cette fonction créée la liste des formules pour construire
  le raisonnement kind par la suite. *)
 let equs_aez (equs: Typed_ast.t_equation) =
   let vars = equs.teq_patt.tpatt_desc in
   let tys = equs.teq_patt.tpatt_type in
-  let pattern = List.map2 create_couple_var_ty vars tys in
+  let patterns = List.map2 create_couple_var_ty
+                   vars
+                   tys in
   let expressions =
     match equs.teq_expr.texpr_desc with
     | Typed_ast.TE_tuple(el) -> el
     | _ -> [equs.teq_expr]
   in
-  List.map2 make_formula pattern expressions
+  List.map2 make_formula
+    patterns
+    expressions
     
   
-let ast_to_astaez texpr =
+let ast_to_astaez (tnode : Typed_ast.t_node) =
   let name =
-    tnode.name in
+    tnode.tn_name in
   let input = (* DONE *)
-    List.map var_aez texpr.tn_input in
+    List.map var_aez tnode.tn_input in
   let output = (* DONE *)
-    List.map var_aez texpr.tn_output in
+    List.map var_aez tnode.tn_output in
   let local = (* DONE *)
-    List.map var_aez texpr.tn_local in
+    List.map var_aez tnode.tn_local in
   let equs = (* TODO *)
-    List.map equs_aez texpr.tn_equs in
+    List.map equs_aez tnode.tn_equs in
   let loc = (* DONE *)
-    texpr.tn_loc in
+    tnode.tn_loc in
   { node_name = name;
     node_input = input;
     node_output = output;
@@ -176,7 +180,7 @@ let aezdify ast_node =
   failwith "ast_to_aez::to_aez::Under Implementation"
    (* TODO *)
 
-
+    
 
   (* Je pense avoir ce que patt signifie:
      dans le cas des equs:

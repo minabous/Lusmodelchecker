@@ -11,16 +11,17 @@ type ident = Ident.t
 type term =
   | T_cst of constant
   | T_op of term_op * term * term
-  | T_ite of formul * term * term
-  | T_formul of formul
-  | T_app ident * int
-    
-type formul =
+  | T_ite of formule * term * term
+  | T_formule of formule
+  | T_app of ident * int
+and formule =
   | F_term of term
   | F_cmp of comparison * term * term
-  | F_lco of combinator * (formula list)
+  | F_lco of combinator * (formule list)
   | F_app of term list
 
+
+           (*
 type stream_body = SB_term of term | SB_formula of formula
 
 type stream_declaration = { 
@@ -29,5 +30,14 @@ type stream_declaration = {
   sd_body: stream_body
 }
 
+            *)
 
-type node = stream_declaration list
+(* type node = stream_declaration list *)
+type node =
+  { node_name: ident;
+    node_input: (Aez.Hstring.t * Asttypes.base_ty) list;
+    node_output: (Aez.Hstring.t * Asttypes.base_ty) list;
+    node_vlocal: (Aez.Hstring.t * Asttypes.base_ty) list;
+    node_equs: ( int -> Aez.Smt.Formula.t) list;
+    node_loc: Asttypes.location;
+  }
