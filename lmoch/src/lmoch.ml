@@ -1,4 +1,3 @@
-
 (* Programme principal *)
 
 open Format
@@ -7,7 +6,7 @@ open Lexer
 open Parser
 open Parse_ast
 
-let usage = "usage: "^Sys.argv.(0)^" [options] file.lus main"
+let usage = "usage: "^Sys.argv.(0)^" [options] file.lus <main>"
 
 let parse_only = ref false
 let type_only = ref false
@@ -65,12 +64,14 @@ let () =
       Format.printf "/**************************************/@.";
       Format.printf "/* Typed ast                          */@.";
       Format.printf "/**************************************/@.";
-      Typed_ast_printer.print_node_list_std ft
-    end;
+      Typed_ast_printer.print_node_list_std ft;
+      (* Printf.printf "In the mood\n"; *)
+      end;
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
-    Transform_aez.aezdify tf;
+    Transform_aez.aezdify ft;
+    (* Compile.compiler ft *)
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
     exit 0

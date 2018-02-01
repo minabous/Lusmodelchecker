@@ -1,7 +1,16 @@
-node check (x: bool) returns (ok: bool);
+node check (x: bool) returns (OK: bool);
 var n1, n2: int;
 let
   n1 = 5;
   n2 = n1;
-  ok = false;
+  OK = false;
+tel
+
+
+node check2 (x: bool) returns (OK: bool);
+var n1, n2: int;
+let
+  n1 = 5;
+  n2 = n1;
+  OK = false;
 tel

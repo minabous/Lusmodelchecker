@@ -2,7 +2,6 @@ open Typed_aez
 open Aez
 open Smt
 open Num
-
 (*
 let input_to_aez input =
   match input with
@@ -12,97 +11,73 @@ let input_to_aez input =
  *)
 
 module Iota = Map.Make(String)
-type iota = Hstring.t Iota.t
-let symboles = Iota.empty
-        
+
+type iota =
+  { mutable env: Aez.Hstring.t Iota.t; }
+
+let symboles = { env=Iota.empty; }
+             
 let declare_symbol name t_in t_out =
   let x = Hstring.make name in
   Symbol.declare x t_in t_out;
-  ignore (Iota.add name x symboles);
+  symboles.env <- Iota.add name x symboles.env;
+  Printf.printf ", %s)\n" (Hstring.view x);
   x
    
 let var_aez (input : Ident.t * Asttypes.base_ty) =
   match input with
   | (v, ty) ->
+     Printf.printf "Nom des variables+Hstring : (%s" v.name;
      match ty with
      | Asttypes.Tbool -> (declare_symbol v.name [Type.type_int] Type.type_bool, ty)
      | Asttypes.Tint  -> (declare_symbol v.name [Type.type_int] Type.type_int, ty)
      | Asttypes.Treal -> (declare_symbol v.name [Type.type_int] Type.type_real, ty)
-     | _ -> failwith "ast_to_aez::var_aez::Unknown type\n Type Has to be int, bool float"
+     | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float"
 
-
-          
-(* Eventuellement faire cette transformation 
- avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
-let create_couple_var_ty (var:Ident.t) (ty: Asttypes.base_ty) =
-  (Iota.find var.name symboles, ty)
   
 (* Ici pour chaque Patt = expr, on renvoit une Formula
    afin de construire la liste des formules à prouver
  *)
 
-let make_term (expr: Typed_ast.t_expr_desc) =
-(*
-  match exprl with
-  | [] -> failwith "transform_aez::make_term:: No expression in list"
-  | a::tl ->
+let rec make_term expr =
+  match expr with
+  | Asttypes.Cbool(b) -> 
      begin
+       match b with
+       | true  -> Term.t_true
+       | false -> Term.t_false
      end
- *)
+  | Asttypes.Cint(i) ->  Term.make_int (Int i)
+  | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
+  | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)"
+          
+  
+and make_formula sym (expr: Typed_ast.t_expr_desc) (n: int) =
   match expr with
   | Typed_ast.TE_const(c) ->
-     match c with
-     | Cbool(b) ->
-        begin
-          match b with
-          | true  -> Term.t_true
-          | false -> Term.t_false
-        end
-     | Cint(i) -> Term.make_int (Int i )
-     (* | Creal(f) -> Term.make_real (Num.float_of_num f) *)
-     | _ -> failwith "ast_to_aez::for_each_pattern_his_eq::Unknown constant type (only int are available yet)"
-(*
+     Formula.make_lit Formula.Eq
+       [ Term.make_app sym [Term.make_int (Num.Int n)] ; make_term c ]      
   | Typed_ast.TE_ident(id) ->
-     let vary = Iota.find id.name env in
-     Term.make_app vary [n] *)
-(*  Tout les expression qui contiennent des listes d'expressions :
-      Faire après.
-   *)
-     (*
-  | TE_op (op, el) ->
-     begin
+     let var = Iota.find id.name symboles.env in
+     Formula.make_lit Formula.Eq
+       [ Term.make_app sym [Term.make_int (Num.Int n)];
+         Term.make_app var [Term.make_int (Num.Int n)] ]
+  | Typed_ast.TE_op (op, el) ->
        match op with
-       | Op_eq  ->
-          begin
-            match el with
-            | [] | [a] ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opérandes 
-                         pour un opérateur egal ??"
-            | e :: tl ->
-               Term.make_arith Plus (make_term [e]) (make_term tl)
-          end
-       | Op_neq ->
-          
-       | Op_lt  ->
-       | Op_le  ->
-       | Op_gt  ->
-       | Op_ge  ->
-          
        | Op_add ->
           begin
             match el with
-            | [] | [a] ->
+            | _ ->
                failwith "transform_aez::
                          create_application::
                          Moins de deux opéarande 
                          pour un opérateur Plus ??"
-            | e :: tl ->
-               Term.make_arith Plus (make_term [e]) (make_term tl)
+            | e1 :: e2 :: [] ->
+               Term.make_arith Term.Plus (make_term e1 n) (make_term e2 n)
           end
+       (*
        | Op_sub ->
-                      | [] | [a] ->
+       | [] | [a] ->
                failwith "transform_aez::
                          create_application::
                          Moins de deux opéarande 
@@ -116,6 +91,25 @@ let make_term (expr: Typed_ast.t_expr_desc) =
           | Op_sub_f ->
           | Op_mul_f ->
           | Op_div_f ->
+        *)
+          (*
+          | Op_eq  -> 
+          begin
+            match el with
+            | [] | [a] ->
+               failwith "transform_aez::
+                         create_application::
+                         Moins de deux opérandes 
+                         pour un opérateur egal ??"
+            | e :: tl ->
+               Term.make_arith Plus (make_term [e]) (make_term tl)
+          end
+       | Op_neq ->        
+       | Op_lt  ->
+       | Op_le  ->
+       | Op_gt  ->
+       | Op_ge  ->
+  
           | Op_not   ->
           | Op_and   ->
           | Op_or   ->
@@ -123,11 +117,20 @@ let make_term (expr: Typed_ast.t_expr_desc) =
           | Op_if   ->
      end
    *)
-     
-let make_formula (varty: Aez.Smt.Symbol.t * Asttypes.base_ty) (expr: Typed_ast.t_expr) =
-  let var_symbol = (fst varty) in
-  (fun n -> Formula.make_lit Formula.Eq
-                 [ Term.make_app var_symbol [Term.make_int (Num.Int n)] ; make_term expr.texpr_desc ])
+
+(* Eventuellement faire cette transformation 
+ avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
+let create_couple_var_ty (var:Ident.t) (ty: Asttypes.base_ty) =
+  (Iota.find_opt var.name symboles.env, ty)
+
+  
+let build_formula (varty: Aez.Smt.Symbol.t option * Asttypes.base_ty) (expr: Typed_ast.t_expr) =
+  let var_symbol =
+    match (fst varty) with
+    | Some a -> a
+    | None -> failwith "transform_aez::make_formula::Variable jamais declarer."
+  in
+  (fun n -> make_formula var_symbol expr.texpr_desc n)
   
 
 (* Cette fonction créée la liste des formules pour construire
@@ -135,19 +138,31 @@ let make_formula (varty: Aez.Smt.Symbol.t * Asttypes.base_ty) (expr: Typed_ast.t
 let equs_aez (equs: Typed_ast.t_equation) =
   let vars = equs.teq_patt.tpatt_desc in
   let tys = equs.teq_patt.tpatt_type in
-  let patterns = List.map2 create_couple_var_ty
-                   vars
-                   tys in
+  let patterns = List.map2 create_couple_var_ty vars tys in
   let expressions =
     match equs.teq_expr.texpr_desc with
     | Typed_ast.TE_tuple(el) -> el
     | _ -> [equs.teq_expr]
   in
-  List.map2 make_formula
+  List.map2 build_formula
     patterns
     expressions
     
-  
+  (* Note : equs = liste des equations.
+   chaque equations est de la forme:
+   (v, ..., vn) = expr, ..., exprn
+   Le but est de transformer chaque formule par :
+   v1 = expr1;
+   ...
+   vn = exprn;
+   Donc equs_aez retourne la liste de toutes les égalités
+   vx = ex, pour une seule instruction d'équations. 
+   à la fin on peut simplement flatten cette liste.
+   (cf article 18pages source à vérifier)
+   De plus chaque vars telque x = (x0, x1 .. xn) 
+   est appelé un "stream".
+
+*)
 let ast_to_astaez (tnode : Typed_ast.t_node) =
   let name =
     tnode.tn_name in
@@ -157,8 +172,15 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
     List.map var_aez tnode.tn_output in
   let local = (* DONE *)
     List.map var_aez tnode.tn_local in
-  let equs = (* TODO *)
-    List.map equs_aez tnode.tn_equs in
+  
+  Printf.printf "Liste des patterns:\n";
+  List.iter (fun (eq: Typed_ast.t_equation) ->
+      List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs;
+  Printf.printf "Liste des elements de Iota:\n";
+  Iota.iter (fun k e -> Printf.printf "%s , %s\n" (k) (Hstring.view e)) symboles.env;
+  
+  let equs = (* PARTIALLY DONE *)
+    List.flatten (List.map equs_aez tnode.tn_equs) in
   let loc = (* DONE *)
     tnode.tn_loc in
   { node_name = name;
@@ -170,14 +192,18 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   }
 
 
-
-let compile_to_alt_ergo faez =
-  failwith "ast_to_aez::compile_to_alt_ergo::Not Implemented"
+(* Ici on récupère l'enregistrement aezdifier
+   et on effectue l'étape de model checking 
+   avec Aez.
+*)
+let checker faez =
+  failwith "transform_aez::checker::Not Implemented"
   
-let aezdify ast_node =
+let aezdify (ast_node: Typed_ast.t_node list) =
   let faez = List.map ast_to_astaez ast_node in
-  Format.printf "End of aezidify \n";
-  failwith "ast_to_aez::to_aez::Under Implementation"
+  Format.printf "End of aezdify \n";
+  checker faez;
+  failwith "transform_aez::aezdify::Under Implementation"
    (* TODO *)
 
     
