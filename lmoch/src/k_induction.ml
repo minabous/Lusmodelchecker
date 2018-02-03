@@ -1,6 +1,6 @@
 open Aez
 open Smt
-open Transform_aez
+(* open Transform_aez *)
 
 exception BASE_CASE_FALSE
 exception TRUE_PROPERTY

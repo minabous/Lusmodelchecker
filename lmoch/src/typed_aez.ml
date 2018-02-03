@@ -1,3 +1,4 @@
+let () = Printf.printf "Typed_aez\n"
 type constant = Asttypes.const
               
 type term_op = Op_plus |  Op_minus | Op_times |  Op_div | Op_mod
@@ -33,11 +34,16 @@ type stream_declaration = {
             *)
 
 (* type node = stream_declaration list *)
-type node =
+
+
+module Iota = Map.Make(String)            
+
+type z_node =
   { node_name: ident;
     node_input: (Aez.Hstring.t * Asttypes.base_ty) list;
     node_output: (Aez.Hstring.t * Asttypes.base_ty) list;
     node_vlocal: (Aez.Hstring.t * Asttypes.base_ty) list;
     node_equs: ( int -> Aez.Smt.Formula.t) list;
     node_loc: Asttypes.location;
+    mutable symboles: Aez.Hstring.t Iota.t;
   }

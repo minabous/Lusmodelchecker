@@ -1,4 +1,4 @@
-node check (x: bool) returns (OK: bool);
+node ventilateur (x: bool) returns (OK: bool);
 var n1, n2: int;
 let
   n1 = 5;
@@ -7,7 +7,7 @@ let
 tel
 
 
-node check2 (x: bool) returns (OK: bool);
+node incr (x: bool) returns (OK: bool);
 var n1, n2: int;
 let
   n1 = 5;

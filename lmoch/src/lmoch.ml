@@ -70,7 +70,9 @@ let () =
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
+    Printf.printf "Debut de l'aezdifying\n";
     Transform_aez.aezdify ft;
+    (* Checker.check ftz; *)
     (* Compile.compiler ft *)
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
