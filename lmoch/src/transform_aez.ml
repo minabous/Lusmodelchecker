@@ -2,6 +2,7 @@ open Typed_aez
 open Aez
 open Smt
 open Num
+open Format
 (*
 let input_to_aez input =
   match input with
@@ -144,6 +145,8 @@ let equs_aez (equs: Typed_ast.t_equation) =
     | Typed_ast.TE_tuple(el) -> el
     | _ -> [equs.teq_expr]
   in
+
+(**)
   List.map2 build_formula
     patterns
     expressions
@@ -166,21 +169,26 @@ let equs_aez (equs: Typed_ast.t_equation) =
 let ast_to_astaez (tnode : Typed_ast.t_node) =
   let name =
     tnode.tn_name in
+
   let input = (* DONE *)
     List.map var_aez tnode.tn_input in
+
   let output = (* DONE *)
     List.map var_aez tnode.tn_output in
+
   let local = (* DONE *)
     List.map var_aez tnode.tn_local in
   
   Printf.printf "Liste des patterns:\n";
   List.iter (fun (eq: Typed_ast.t_equation) ->
       List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs;
+
   Printf.printf "Liste des elements de Iota:\n";
   Iota.iter (fun k e -> Printf.printf "%s , %s\n" (k) (Hstring.view e)) symboles.env;
   
   let equs = (* PARTIALLY DONE *)
     List.flatten (List.map equs_aez tnode.tn_equs) in
+
   let loc = (* DONE *)
     tnode.tn_loc in
   { node_name = name;
@@ -192,17 +200,97 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   }
 
 
+
 (* Ici on récupère l'enregistrement aezdifier
    et on effectue l'étape de model checking 
    avec Aez.
 *)
-let checker faez =
-  failwith "transform_aez::checker::Not Implemented"
+
   
-let aezdify (ast_node: Typed_ast.t_node list) =
-  let faez = List.map ast_to_astaez ast_node in
-  Format.printf "End of aezdify \n";
-  checker faez;
+let aezdify (ast_node: Typed_ast.t_node list) k =
+  let laez = List.map ast_to_astaez ast_node in
+  (*on recupere le premier node aez dans laliste laez*)
+  let aez_node=List.hd laez in 
+  let variables=  aez_node.node_output(*c la liste des outputs pour chaque aeznode*)
+
+  let {name=variable} , _ =
+    List.find(fun({name}, _) ->String.lowercase name = "ok") variables
+
+   in 
+
+
+let module BMC_solver =Smt.make(struct end) in
+   begin
+(*on recupere la liste des equations du node aez*)
+  let l_formula =aez_node.node_equs in
+  let delta i l_formula= Formula.make Formula.And l_formula
+  for i=0 to k-1 do 
+    let delta_i = delta i l_formula in (*c'est la ou on recupere la liste des equations avec n =0 , n=1 .......avec f-formula c'est une focntion qui prend comme parametre u n entier est retourne une formule de ttes les des des equations*)
+    BMC_solver.assume ~id:0 delta_i
+
+done;
+
+  BMC_solver.check();
+
+ for i=0 to k-1 do 
+   let equation = ((Term.make_app variable i)===T.t_true) in 
+
+   if not(BMC.entails ~id:0 equation) then raise BASE_CASE_FAILS
+   done;
+
+end;
+
+
+(*deuxime cas c'est le cas inductive*)
+
+let module IND_solver=Smt.make(struct end) in 
+  begin
+ let n = Term.make_app (declare_symbol "n" [] Type.type_int) []in 
+ let l_formula =aez_node.node_aqus in
+ let delta i l_formula= Formula.make Formula.And l_formula in 
+    for i= 0 to k do 
+
+(* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*) 
+ let kprim = Term.make_arith Term.Plus n (Term.make_int (Num.Int i) ) in
+   
+ let delta_i = delta kpim l_formula in (*c'est la ou on recupere la liste des equations avec n =0 , n=1 .......avec f-formula c'est une focntion qui prend comme parametre u n entier est retourne une formule de ttes les des des equations*)
+    IND_solver.assume ~id:0 delta_i
+if i < k
+ then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0);kprim] ;
+
+if i >0
+ then 
+  begin
+   let equation = ((Term.make_app variable i) === T.t_true) in 
+    IND.assume ~id:0 equation 
+ 
+  end;
+
+done;
+
+IND_solver.check();
+
+let formula=(Term.make_app variable n)===T.t_true) in 
+
+( if(not (IND_solver.entails ~id:0 (formula))
+then raise FALSE_PROPERTY );
+
+end;
+
+TRUE_PROPERTY
+with
+  |BASE_CASE_FAILS ->Format.printf "property base false";
+  |FALSE_PROPERTY   ->Format.printf "property false";
+
+
+
+
+
+ 
+
+
+
+ Format.printf "End of aezdify \n"
   failwith "transform_aez::aezdify::Under Implementation"
    (* TODO *)
 
