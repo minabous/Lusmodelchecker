@@ -1,14 +1,12 @@
 open Aez
 open Smt
 open Num
-open Format
-
-
+open Typed_aez
 
 let i = ref 0
              
 let declare_symbol (node:z_node) (name:String.t) t_in t_out =
-  let x = Hstring.make nam
+  let x = Hstring.make name in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add name x node.symboles;
   Printf.printf ", %s)\n" (Hstring.view x);
@@ -26,7 +24,7 @@ let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
         (declare_symbol node v.name [Type.type_int] Type.type_int, ty)
      | Asttypes.Treal ->
         (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
-     | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float"
+     (* | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float" *)
 
   
 (* 
@@ -48,7 +46,7 @@ let rec make_term expr =
           end
        | Asttypes.Cint(i) ->  Term.make_int (Int i)
        | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
-       | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)"
+       (* | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)" *)
      end
   | _ ->
      failwith "transform_aez::make_term::Not Implemented"
@@ -80,17 +78,17 @@ let rec make_formula
        | Op_add ->
           begin
             match el with
-            | _ ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opéarande 
-                         pour un opérateur Plus ??"
             | e1 :: e2 :: [] ->
                Formula.make_lit Formula.Eq
                  [Term.make_app sym [Term.make_int (Num.Int n)];
                   Term.make_arith Term.Plus
                     (make_term e1.texpr_desc)
                     (make_term e2.texpr_desc)]
+            | _ ->
+               failwith "transform_aez::
+                         create_application::
+                         Moins de deux opéarande 
+                         pour un opérateur Plus ??"
           end
        | _ ->
           failwith "transform_aez::make_formula::List match operators not implemented"
@@ -299,17 +297,18 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
    alors tu peux le déclarer dehors *)
 
 (* Point d'entrée *) 
-(*
-let module BMC_solver = Smt.Make(struct end) 
-let module IND_solver =Smt.Make(struct end) 
 
-let delta i formulas = Formula.make Formula.And  formulas in
+module BMC_solver = Smt.Make(struct end) 
+module IND_solver = Smt.Make(struct end) 
+
+(* let delta i formulas = Formula.make Formula.And  formulas in *)
 
 let aezdify (ast_node: Typed_ast.t_node list) k =
-try
- Printf.printf "aezdify begin \n";
+(* try *)
+  Printf.printf "Aezdify begin\n";
   let laez = List.map ast_to_astaez ast_node in
-
+  Printf.printf "Aezdify end\n"; ()
+(*
   (*on recupere le premier node aez dans laliste laez*)
   let aez_node = List.hd laez in 
   let variables=aez_node.node_output in
