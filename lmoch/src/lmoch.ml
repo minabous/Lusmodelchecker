@@ -24,7 +24,7 @@ let spec =
   ]
 
 let file, main_node =
-  let file = ref None in
+  let file = ref None in 
   let main = ref None in
   let set_file s =
     if not (Filename.check_suffix s ".lus") then
@@ -62,7 +62,7 @@ let () =
     let ft = Typing.type_file f main_node in
     if !verbose then begin
       Format.printf "/**************************************/@.";
-      Format.printf "/* Typed ast                          */@.";
+      Format.printf "/*            Typed ast               */@.";
       Format.printf "/**************************************/@.";
       Typed_ast_printer.print_node_list_std ft;
       (* Printf.printf "In the mood\n"; *)
@@ -70,10 +70,7 @@ let () =
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
-    Printf.printf "Debut de l'aezdifying\n";
-    Transform_aez.aezdify ft;
-    (* Checker.check ftz; *)
-    (* Compile.compiler ft *)
+    Transform_aez.aezdify ft 0;
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
     exit 0

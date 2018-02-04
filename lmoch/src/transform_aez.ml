@@ -9,22 +9,22 @@ let declare_symbol (node:z_node) (name:String.t) t_in t_out =
   let x = Hstring.make name in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add name x node.symboles;
-  Printf.printf ", %s)\n" (Hstring.view x);
+  Printf.printf "(%s, %s)\n" name (Hstring.view x);
   x
    
 let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
-  Printf.printf "var_aez\n";
-  match input with
-  | (v, ty) ->
-     Printf.printf "Nom des variables+Hstring : (%s" v.name;
-     match ty with
-     | Asttypes.Tbool ->
-        (declare_symbol node v.name [Type.type_int] Type.type_bool, ty)
-     | Asttypes.Tint  ->
-        (declare_symbol node v.name [Type.type_int] Type.type_int, ty)
-     | Asttypes.Treal ->
-        (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
-     (* | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float" *)
+  Printf.printf "    <Var_aez>\n";
+    match input with
+    | (v, ty) ->
+       Printf.printf "    Nom des variables+Hstring:  ";
+       match ty with
+       | Asttypes.Tbool ->
+          (declare_symbol node v.name [Type.type_int] Type.type_bool, ty)
+       | Asttypes.Tint  ->
+          (declare_symbol node v.name [Type.type_int] Type.type_int, ty)
+       | Asttypes.Treal ->
+          (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
+(* | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float" *)
 
   
 (* 
@@ -58,10 +58,8 @@ let rec make_formula
           (expr: Typed_ast.t_expr_desc)
           (n: int) =
   let formula =
-    Format.printf "%s" __LOC__;
+    Printf.printf "Make_formula\n";
     match expr with
-  (* Amina: 
-   Pourquoi expr et pas Const(c) directement ici.*)
   | Typed_ast.TE_const(c) ->
      Formula.make_lit Formula.Eq
        [ Term.make_app sym [Term.make_int (Num.Int n)] ; make_term expr ]
@@ -95,7 +93,7 @@ let rec make_formula
      end
   | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
-  Smt.Formula.print Format.std_formatter formula;
+  (* Smt.Formula.print Format.std_formatter formula; *)
   formula
   (*
        | Op_sub ->
@@ -143,7 +141,7 @@ let rec make_formula
  avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
 let create_couple_var_ty (node: z_node) (var:Ident.t) (ty: Asttypes.base_ty)
     : Aez.Hstring.t * Asttypes.base_ty =
-  Printf.printf "Create_couple_var_ty\n";
+  Printf.printf "    <Create_couple_var_ty>\n";
     (Iota.find var.name node.symboles, ty)
 
   
@@ -151,7 +149,7 @@ let build_formula
       (node:z_node)
       (patty: Aez.Hstring.t * Asttypes.base_ty)
       (expr: Typed_ast.t_expr) =
-  Printf.printf "Build_formula\n";
+  Printf.printf "    <Build_formula>\n";
   let var_symbol = fst patty in
   (fun (n:int) -> make_formula node var_symbol expr.texpr_desc n)
 
@@ -163,7 +161,7 @@ let normalize
       (node: z_node)
       (patts: (Hstring.t * Asttypes.base_ty) list)
       (exprs: Typed_ast.t_expr list) =
-  Printf.printf "Normalize\n";
+  Printf.printf "    <Normalize>\n";
   let rec aux acc1 acc2
             (l1: (Hstring.t * Asttypes.base_ty) list)
             (l2: Typed_ast.t_expr list ) =
@@ -190,9 +188,10 @@ let normalize
                     la fin du parsing alors initialiser i 
                     avec cette valeur + 1*)
                  let (id: Ident.t) = 
-                   {id=(!i);
-                    name=(Printf.sprintf "aux%d" !i);
-                    kind=Ident.Prim;
+                   {
+                     id=(!i);
+                     name=(Printf.sprintf "aux%d" !i);
+                     kind=Ident.Prim;
                    }
                  in
                  let (fresh_expr:Typed_ast.t_expr) =
@@ -222,7 +221,7 @@ let normalize
  le raisonnement kind par la suite. *)
 (* List.map2 (fun x y -> ()) [] [] *) (* Unit debug expression *)
 let equs_aez (node:z_node) (equs: Typed_ast.t_equation) =
-  Printf.printf "Equs_aez\n";
+  Printf.printf "\n<Equs_aez>\n";
   let vars = equs.teq_patt.tpatt_desc in
   let tys = equs.teq_patt.tpatt_type in
   let patts = List.map2 (create_couple_var_ty node) vars tys in
@@ -258,8 +257,8 @@ let equs_aez (node:z_node) (equs: Typed_ast.t_equation) =
 
 *)
 let ast_to_astaez (tnode : Typed_ast.t_node) =
-  Printf.printf "Function:ast_to_aez\n";
-  Printf.printf "Node:%s\n" tnode.tn_name.name;
+  Printf.printf "    <Ast_to_astaez>: ";
+  Printf.printf "Node=%s\n\n" tnode.tn_name.name;
   let node =
     { node_name = tnode.tn_name;
       node_input = [];
@@ -277,13 +276,13 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   let local = (* DONE *)
     List.map (var_aez node) tnode.tn_local in
   
-  Printf.printf "Liste des patterns:\n";
-  List.iter (fun (eq: Typed_ast.t_equation) ->
-      List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs;
-  Printf.printf "Liste des elements de Iota:\n";
-  Iota.iter (fun k e -> Printf.printf "%s , %s\n" (k) (Hstring.view e)) node.symboles;
+  (* Printf.printf "Liste des patterns:\n";
+   * List.iter (fun (eq: Typed_ast.t_equation) ->
+   *     List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs; *)
   let equs = (* PARTIALLY DONE *)
     List.flatten (List.map (equs_aez node) tnode.tn_equs) in
+   Printf.printf "    Liste des elements de Iota:\n";
+   Iota.iter (fun k e -> Printf.printf "      --> %s , %s\n" (k) (Hstring.view e)) node.symboles;
   { node with
     node_input = input;
     node_output = output;
@@ -305,9 +304,10 @@ module IND_solver = Smt.Make(struct end)
 
 let aezdify (ast_node: Typed_ast.t_node list) k =
 (* try *)
-  Printf.printf "Aezdify begin\n";
+  Printf.printf "<Aezdify> begin\n";
   let laez = List.map ast_to_astaez ast_node in
-  Printf.printf "Aezdify end\n"; ()
+  Printf.printf "<Aezdify> end\n";
+  laez
 (*
   (*on recupere le premier node aez dans laliste laez*)
   let aez_node = List.hd laez in 
