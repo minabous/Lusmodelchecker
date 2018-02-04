@@ -41,7 +41,10 @@ let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
    afin de construire la liste des formules à prouver
 *)
 
-let rec make_term expr =
+(**********************AEZ_term*********************)
+
+
+let rec make_term exp=
   Printf.printf "Make_term\n";
   match expr with
   | Typed_ast.TE_const(c) ->
@@ -57,8 +60,49 @@ let rec make_term expr =
        | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
        (* | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)" *)
      end
+  
   | _ ->
      failwith "transform_aez::make_term::Not Implemented"
+
+(************************AEZ FORMULA******************************)
+let arith op = 
+   match op with 
+   |Op_add |Op_add_f -> Term.Plus
+   |Op_sub|Op_sub_f -> Term.Sub
+   |Op_mul |Op_mul_f -> Term.Mul
+   |Op_div |Op_div_f -> Term.Div
+   |Op_mod ->Term.Modulo
+   |_    -> failwith "incorrect operator"
+
+
+let logic op =
+     match op with 
+     | Op_and -> Formula.And
+     | Op_or -> Formula.Or
+     | Op_impl -> Formula.Imp
+     | Op_not -> Formula.Not
+     | _ -> failwith "not a logical operation"
+
+let f_operation code ts=
+   match ts with 
+   |t ::ts -> let combine =Term.make_arith (arith code ) make_term t in 
+      List.fold_left combine ts 
+   | _ -> failwith "incorrect op"
+
+
+let f_combinator code fs =
+    Formula.make (logic code) fs
+
+
+let f_comp code fs =
+match code with 
+  | Op_eq -> Formula.make_lit Formula.Eq ( List.map make_term )fs
+  | Op_lt -> Formula.make_lit Formula.Lt ( List.map make_term )fs
+  | Op_le -> Formula.make_lit Formula.Le ( List.map make_term )fs
+  | Op_neq -> Formula.make_lit Formula.Neq ( List.map make_term )fs
+  | Op_gt -> Formula.make Formula.Not [Formula.make_lit Formula.Le ( List.map make_term )fs]
+  | Op_ge -> Formula.make Formula.Not [Formula.make_lit Formula.Lt ( List.map make_term )fs]
+  | _ -> failwith "not a comparison"
           
     
 let rec make_formula
@@ -72,7 +116,7 @@ let rec make_formula
   | Typed_ast.TE_const(c) ->
      Formula.make_lit Formula.Eq
        [ Term.make_app sym [Term.make_int (Num.Int n)] ; make_term expr ]
-    
+    (*??????,*)
   | Typed_ast.TE_ident(id) ->
      let var = Iota.find id.name node.symboles in
      Formula.make_lit Formula.Eq
@@ -80,71 +124,32 @@ let rec make_formula
          Term.make_app var [Term.make_int (Num.Int n)] ]
      
   | Typed_ast.TE_op (op, el) ->
-     begin
        match op with
-       | Op_add ->
-          begin
-            match el with
-            | e1 :: e2 :: [] ->
-               Formula.make_lit Formula.Eq
-                 [Term.make_app sym [Term.make_int (Num.Int n)];
-                  Term.make_arith Term.Plus
-                    (make_term e1.texpr_desc)
-                    (make_term e2.texpr_desc)]
-            | _ ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opéarande 
-                         pour un opérateur Plus ??"
-          end
-       | _ ->
-          failwith "transform_aez::make_formula::List match operators not implemented"
-     end
+      | Op_add|Op_sub|Op_mult|Op_div|Op_mod
+      | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f ->Formula.make_lit Formula.Eq[Term.make_app sym [Term.make_int (Num.Int n)]; f_operation op el 
+           
+       
+      |Op_and |Op_or|Op_impl|Op_not ->
+         Formula.make_lit Formula.Eq[Term.make_app sym [Term.make_int (Num.Int n)]; f_combinator op el 
+            
+      |Op_if  -> match el with
+         |[cond ;thn ; els] -> Fomula.make_lit Formula.Eq[Term.make_app sym [Term.make_int (Num.Int n)]; Term.make_ite  cond thn els
+         |_  ->failwith " error "
+
+
+      | Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge ->(*normalize*)
+     Fomula.make_lit Formula.Eq[Term.make_app sym [Term.make_int (Num.Int n)];f_comp op el
+    (*
+  | Typed_ast.TE_arrow (t1 ,t2) ->
+
+  | TE_pre t  ->
+*)
   | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
   (* Smt.Formula.print Format.std_formatter formula; *)
   formula
-  (*
-       | Op_sub ->
-       | [] | [a] ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opéarande 
-                         pour un opérateur Plus ??"
-            | e :: tl ->
-               Term.make_arith Plus (make_term [e]) (make_term tl)
-          | Op_mul ->
-          | Op_div ->
-          | Op_mod ->
-          | Op_add_f ->
-          | Op_sub_f ->
-          | Op_mul_f ->
-          | Op_div_f ->
-        *)
-          (*
-          | Op_eq  -> 
-          begin
-            match el with
-            | [] | [a] ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opérandes 
-                         pour un opérateur egal ??"
-            | e :: tl ->
-               Term.make_arith Plus (make_term [e]) (make_term tl)
-          end
-       | Op_neq ->        
-       | Op_lt  -> Formula.make
-       | Op_le  ->
-       | Op_gt  ->
-       | Op_ge  ->
   
-          | Op_not   ->
-          | Op_and   ->
-          | Op_or   ->
-          | Op_impl ->
-          | Op_if   ->
-   *)
+           
 
 (* Eventuellement faire cette transformation 
  avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
@@ -299,70 +304,4 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
     node_equs = equs;
   }
       
-let aezdify (ast_node: Typed_ast.t_node list) k =
-  try
-    Printf.printf "<Aezdify> begin\n";
-    let list_aez =
-      Printf.printf "<Aezdify> end\n";
-      List.map ast_to_astaez ast_node in
-   (*on recupere le premier node aez dans la liste list_aez*)
-    let aez_node = List.hd list_aez in 
-    let variables = aez_node.node_output in
-    let variable = List.hd variables in  
-    let formul_list = aez_node.equs in    
-    let delta i formulas = Formula.make Formula.And(formulas) in 
-    let p_incr_i i ok = Formula.make_lit Formula.Eq[Term.make_app ok i ; Term.t_true] in 
 
-
-   (*cas de base*)
-   let bmc k =
-   Format.printf "Bmc : node base case " ; 
-      for i = 0 to k - 1 do 
-      let delta_i = delta i formul_list in
-       BMC_solver.assume ~id:0 (delta_i);
-       done;
-       BMC_solver.check();
-
-   Format.printf"checking base case condition\n";
-      for i=0 to k-1 do 
-       let ok_i = p_incr_i i variable  in 
-       if not (BMC_solver.entails ~id:0 ok_i) then (raise BASE_CASE_FAILS) 
-      done;
-
-
-in
-
-  let n = Term.make_app (declare_symbol "n" [] Type.type_int) [] in 
-
-   let kind k =
-     for i= 0 to k do 
-     let kprim = Term.make_arith Term.Plus n (Term.make_int(Num.Int i)) in
-     let delta_i = delta kprim formul_list in
-      let ok_i = p_incr_i kprim variable  in
-   (* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*) 
-   IND_solver.assume ~id:0 (delta_i);
-   IND_solver.check ();
-   IND_solver.assume  ~id:0 ok_i;  
-  if (IND_solver.entails ~id:0 ok_i) then (raise FALSE_PROPERTY) 
- 
-
-   if (i < k)
-    then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int   (Num.Int 0);kprim] );
-    done;
-TRUE_PROPERTY
-
-with
-
- |TRUE_PROPERTY -> Format.printf "TRUE PROPERTY"	
- | FALSE_PROPERTY  -> Format.printf "FALSE PROPERTY"
- |BASE_CASE_FAILS ->Format.printf "Base case fails"
-
-
-
-
-
- 
- 
-
-
- 
