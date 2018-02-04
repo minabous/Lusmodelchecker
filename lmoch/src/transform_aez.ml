@@ -1,10 +1,10 @@
 open Aez
 open Smt
 open Num
+module F = Formula
+module T = Term
 open Typed_aez
-open Formula
-
-
+   
 exception FALSE_PROPERTY
 exception TRUE_PROPERTY
 exception BASE_CASE_FAILS
@@ -65,19 +65,19 @@ let rec make_formula
           (node: z_node)
           (sym: Aez.Hstring.t)
           (expr: Typed_ast.t_expr_desc)
-          (n: int) =
+          (n: Term.t) =
   let formula =
     Printf.printf "Make_formula\n";
     match expr with
   | Typed_ast.TE_const(c) ->
      Formula.make_lit Formula.Eq
-       [ Term.make_app sym [Term.make_int (Num.Int n)] ; make_term expr ]
+       [ Term.make_app sym [n] ; make_term expr ]
     
   | Typed_ast.TE_ident(id) ->
      let var = Iota.find id.name node.symboles in
      Formula.make_lit Formula.Eq
-       [ Term.make_app sym [Term.make_int (Num.Int n)];
-         Term.make_app var [Term.make_int (Num.Int n)] ]
+       [ Term.make_app sym [n];
+         Term.make_app var [n] ]
      
   | Typed_ast.TE_op (op, el) ->
      begin
@@ -87,7 +87,7 @@ let rec make_formula
             match el with
             | e1 :: e2 :: [] ->
                Formula.make_lit Formula.Eq
-                 [Term.make_app sym [Term.make_int (Num.Int n)];
+                 [Term.make_app sym [n];
                   Term.make_arith Term.Plus
                     (make_term e1.texpr_desc)
                     (make_term e2.texpr_desc)]
@@ -102,7 +102,12 @@ let rec make_formula
      end
   | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
-  (* Smt.Formula.print Format.std_formatter formula; *)
+  let fmt =
+    Format.make_formatter
+      (Pervasives.output_substring Pervasives.stdout)
+      (fun () -> Pervasives.flush Pervasives.stdout)
+  in
+  Smt.Formula.print fmt formula;
   formula
   (*
        | Op_sub ->
@@ -155,12 +160,12 @@ let create_couple_var_ty (node: z_node) (var:Ident.t) (ty: Asttypes.base_ty)
 
   
 let build_formula
-      (node:z_node)
-      (patty: Aez.Hstring.t * Asttypes.base_ty)
+      (node: z_node)
+      (patt_ty: Aez.Hstring.t * Asttypes.base_ty)
       (expr: Typed_ast.t_expr) =
   Printf.printf "    <Build_formula>\n";
-  let var_symbol = fst patty in
-  (fun (n:int) -> make_formula node var_symbol expr.texpr_desc n)
+  let var_symbol = fst patt_ty in
+  (fun (n: Term.t) -> make_formula node var_symbol expr.texpr_desc n) (Term.make_int (Num.Int 0))
 
 
 
@@ -211,11 +216,9 @@ let normalize
                    }
                  in
                  incr i;
-                 aux (acc1@
-                        [a]
-                        @
-                          [fresh_var])
-                   (acc2@[fresh_expr]@[b]) tla tlb
+                 aux (acc1@[a]@[fresh_var])
+                   (acc2@[fresh_expr]@[b])
+                   tla tlb
               | _ -> aux (acc1@[a]) (acc2@[b]) tla tlb
             end
          | _ -> aux (acc1@[a]) (acc2@[b]) tla tlb
@@ -298,65 +301,23 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
     node_vlocal = local;
     node_equs = equs;
   }
-      
-let aezdify (ast_node: Typed_ast.t_node list) k =
-  try
-    Printf.printf "<Aezdify> begin\n";
-    let list_aez =
-      Printf.printf "<Aezdify> end\n";
-      List.map ast_to_astaez ast_node in
-   (*on recupere le premier node aez dans la liste list_aez*)
-    let aez_node = List.hd list_aez in 
-    let variables = aez_node.node_output in
-    let variable = List.hd variables in  
-    let formul_list = aez_node.equs in    
-    let delta i formulas = Formula.make Formula.And(formulas) in 
-    let p_incr_i i ok = Formula.make_lit Formula.Eq[Term.make_app ok i ; Term.t_true] in 
 
 
-   (*cas de base*)
-   let bmc k =
-   Format.printf "Bmc : node base case " ; 
-      for i = 0 to k - 1 do 
-      let delta_i = delta i formul_list in
-       BMC_solver.assume ~id:0 (delta_i);
-       done;
-       BMC_solver.check();
-
-   Format.printf"checking base case condition\n";
-      for i=0 to k-1 do 
-       let ok_i = p_incr_i i variable  in 
-       if not (BMC_solver.entails ~id:0 ok_i) then (raise BASE_CASE_FAILS) 
-      done;
-
-
-in
-
-  let n = Term.make_app (declare_symbol "n" [] Type.type_int) [] in 
-
-   let kind k =
-     for i= 0 to k do 
-     let kprim = Term.make_arith Term.Plus n (Term.make_int(Num.Int i)) in
-     let delta_i = delta kprim formul_list in
-      let ok_i = p_incr_i kprim variable  in
-   (* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*) 
-   IND_solver.assume ~id:0 (delta_i);
-   IND_solver.check ();
-   IND_solver.assume  ~id:0 ok_i;  
-  if (IND_solver.entails ~id:0 ok_i) then (raise FALSE_PROPERTY) 
- 
-
-   if (i < k)
-    then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int   (Num.Int 0);kprim] );
-    done;
-TRUE_PROPERTY
-
-with
-
- |TRUE_PROPERTY -> Format.printf "TRUE PROPERTY"	
- | FALSE_PROPERTY  -> Format.printf "FALSE PROPERTY"
- |BASE_CASE_FAILS ->Format.printf "Base case fails"
-
+  
+(* ********************************************************************** *)
+(** aezfify: Crée un nouvel arbre de syntaxe
+    après une éventuelle normalisation.
+    
+    @param:
+    @return: Un enregistrement représantant
+             le noeud et ses formules dans le format
+             attendu par le module Aez.
+ **)
+let aezdify (ast_node: Typed_ast.t_node list) =
+  Printf.printf "<Aezdify> begin\n";
+  let laez = List.map ast_to_astaez ast_node in
+  Printf.printf "<Aezdify> end\n";
+  laez
 
 
 
