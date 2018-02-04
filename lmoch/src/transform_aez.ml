@@ -2,6 +2,15 @@ open Aez
 open Smt
 open Num
 open Typed_aez
+open Formula
+
+
+exception FALSE_PROPERTY
+exception TRUE_PROPERTY
+exception BASE_CASE_FAILS
+
+module BMC_solver = Smt.Make(struct end) 
+module IND_solver = Smt.Make(struct end)
 
 let i = ref 0
              
@@ -289,81 +298,71 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
     node_vlocal = local;
     node_equs = equs;
   }
-
-  
-
-(* Stephane: Ici BMC est comme une structure en C 
-   alors tu peux le déclarer dehors *)
-
-(* Point d'entrée *) 
-
-module BMC_solver = Smt.Make(struct end) 
-module IND_solver = Smt.Make(struct end) 
-
-(* let delta i formulas = Formula.make Formula.And  formulas in *)
-
+      
 let aezdify (ast_node: Typed_ast.t_node list) k =
-(* try *)
-  Printf.printf "<Aezdify> begin\n";
-  let laez = List.map ast_to_astaez ast_node in
-  Printf.printf "<Aezdify> end\n";
-  laez
-(*
-  (*on recupere le premier node aez dans laliste laez*)
-  let aez_node = List.hd laez in 
-  let variables=aez_node.node_output in
-  let formul_list=aez_node.equs in
-  let variable =List.hd variables in  
-  for i = 0 to k - 1 do 
-    let delta_i = delta i formul_list in (*c'est la ou on recupere la liste des equations avec n =0 , n=1 .......avec f-formula c'est une focntion qui prend comme parametre u n entier est retourne une formule de ttes les des des equations*)
-    BMC_solver.assume ~id:0 delta_i
-
-   done;
-
-  BMC_solver.check();
+  try
+    Printf.printf "<Aezdify> begin\n";
+    let list_aez =
+      Printf.printf "<Aezdify> end\n";
+      List.map ast_to_astaez ast_node in
+   (*on recupere le premier node aez dans la liste list_aez*)
+    let aez_node = List.hd list_aez in 
+    let variables = aez_node.node_output in
+    let variable = List.hd variables in  
+    let formul_list = aez_node.equs in    
+    let delta i formulas = Formula.make Formula.And(formulas) in 
+    let p_incr_i i ok = Formula.make_lit Formula.Eq[Term.make_app ok i ; Term.t_true] in 
 
 
- for i=0 to k-1 do 
-   let equation = ((Term.make_app variable i)===T.t_true) in 
+   (*cas de base*)
+   let bmc k =
+   Format.printf "Bmc : node base case " ; 
+      for i = 0 to k - 1 do 
+      let delta_i = delta i formul_list in
+       BMC_solver.assume ~id:0 (delta_i);
+       done;
+       BMC_solver.check();
 
-   if not(BMC_solver.entails ~id:0 equation) then raise BASE_CASE_FAILS
-   done;
+   Format.printf"checking base case condition\n";
+      for i=0 to k-1 do 
+       let ok_i = p_incr_i i variable  in 
+       if not (BMC_solver.entails ~id:0 ok_i) then (raise BASE_CASE_FAILS) 
+      done;
 
-(**************************)
 
+in
 
-(*deuxime cas c'est le cas inductive*)
- 
- let n = Term.make_app (declare_symbol "n" [] Type.type_int) []in 
+  let n = Term.make_app (declare_symbol "n" [] Type.type_int) [] in 
 
- for i= 0 to k do 
-   
+   let kind k =
+     for i= 0 to k do 
+     let kprim = Term.make_arith Term.Plus n (Term.make_int(Num.Int i)) in
+     let delta_i = delta kprim formul_list in
+      let ok_i = p_incr_i kprim variable  in
    (* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*) 
-   let kprim = Term.make_arith Term.Plus n (Term.make_int (Num.Int i) ) in
-   
-   (*c'est la ou on recupere la liste des equations avec n =0 , n=1 .......avec f-formula c'est une focntion qui prend comme parametre u n entier est retourne une formule de ttes les des des equations*)
-   let delta_i = delta kpim formula_list in
-   IND_solver.assume ~id:0 delta_i ; 
-   if i < k
- then IND_solver.assume ~id:0 Formula.make_lit Formula.Le [Term.make_int (Num.Int 0);kprim] ;
+   IND_solver.assume ~id:0 (delta_i);
+   IND_solver.check ();
+   IND_solver.assume  ~id:0 ok_i;  
+  if (IND_solver.entails ~id:0 ok_i) then (raise FALSE_PROPERTY) 
+ 
 
-if i > 0
- then 
-  begin
-   let equation = ((Term.make_app variable i) === T.t_true) in 
-   IND_solver.assume ~id:0 equation 
-   
-  end;
-                               
-  done;
-        IND_solver.check();
-let formula = (Term.make_app variable n )=== T.t_true in 
-
- (if not (IND_solver.entails ~id:0 formula)
-  then raise FALSE_PROPERTY );
+   if (i < k)
+    then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int   (Num.Int 0);kprim] );
+    done;
 TRUE_PROPERTY
 
- with
-  |BASE_CASE_FAILS ->Format.printf "property base false";
-  |FALSE_PROPERTY   ->Format.printf "property false";
-                *)
+with
+
+ |TRUE_PROPERTY -> Format.printf "TRUE PROPERTY"	
+ | FALSE_PROPERTY  -> Format.printf "FALSE PROPERTY"
+ |BASE_CASE_FAILS ->Format.printf "Base case fails"
+
+
+
+
+
+ 
+ 
+
+
+ 
