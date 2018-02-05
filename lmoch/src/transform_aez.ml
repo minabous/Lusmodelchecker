@@ -139,11 +139,11 @@ let rec make_formula
          
        |Op_if  ->
          match el with
-         | [cond ;thn ; els] ->
+         | [ cond; thn; els ] ->
             Fomula.make_lit Formula.Eq
               [ Term.make_app sym [n];
                 Term.make_ite cond thn els ]
-         |_  ->failwith "transform_aez::make_formula::Invalid match for IfThenElse"
+         | _  ->failwith "transform_aez::make_formula::Invalid match for IfThenElse"
 
          | Op_eq | Op_neq
            | Op_lt | Op_le
