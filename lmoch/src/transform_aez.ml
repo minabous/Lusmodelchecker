@@ -4,6 +4,7 @@ open Num
 module F = Formula
 module T = Term
 open Typed_aez
+open Asttypes
    
 exception FALSE_PROPERTY
 exception TRUE_PROPERTY
@@ -34,18 +35,59 @@ let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
      | Asttypes.Treal ->
         (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
 (* | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float" *)
-
+       
        
 (* 
    Ici pour chaque Patt = expr, on renvoit une Formula
    afin de construire la liste des formules à prouver
  *)
 
-(**********************AEZ_term*********************)
 
+(* *********************** AEZ FORMULA ************************** *)
+let arith op = 
+  match op with 
+  | Op_add | Op_add_f -> Term.Plus
+  | Op_sub | Op_sub_f -> Term.Minus
+  | Op_mul | Op_mul_f -> Term.Mult
+  | Op_div | Op_div_f -> Term.Div
+  | Op_mod -> Term.Modulo
+  |_    -> failwith "incorrect operator"
 
-let rec make_term exp =
-  Printf.printf "Make_term\n";
+let logic op =
+  match op with 
+  | Op_and -> Formula.And
+  | Op_or -> Formula.Or
+  | Op_impl -> Formula.Imp
+  | Op_not -> Formula.Not
+  | _ -> failwith "incorrect combinator"
+
+let compare op =
+  match op with
+  | Op_eq -> Formula.Eq 
+  | Op_lt -> Formula.Lt
+  | Op_le -> Formula.Le
+  | Op_neq -> Formula.Neq
+  | _ -> failwith "incorrect comparator"     
+
+  
+let rec formula_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Term.t) =
+  Printf.printf "Formula_of\n";
+  match expr with
+  | Typed_ast.TE_op(op, el) ->
+     match el with
+     | [e1; e2] ->
+        let e1, e2 = e1.texpr_desc, e2.texpr_desc in
+        Formula.make_lit (compare op)
+          [ term_of node e1 n;
+            term_of node e2 n ]
+     | _ ->
+        failwith "transform_aez::formula_of::Only two operandes expected"
+       
+  (* let e1, e2 = List.nth el 0, List.nth el 1 in
+   * Formula.make (logic op) formula_of *)     
+(* *************************** AEZ_term ************************** *)
+and term_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Smt.Term.t) =
+  Printf.printf "Term_of\n";  
   match expr with
   | Typed_ast.TE_const(c) ->
      begin
@@ -56,67 +98,46 @@ let rec make_term exp =
             | true  -> Term.t_true
             | false -> Term.t_false
           end
-       | Asttypes.Cint(i) ->  Term.make_int (Int i)
+       | Asttypes.Cint(i) ->  Term.make_int  (Num.Int i)
        | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
-                                             (* | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)" *)
      end
     
+  | Typed_ast.TE_ident(id) ->
+     let var = Iota.find id.name node.symboles in
+     Term.make_app var [n]
+     
+  | Typed_ast.TE_op(op, el) ->
+     begin
+       match el with
+       | [e1; e2] ->
+          let e1, e2 = e1.texpr_desc, e2.texpr_desc in
+          Term.make_arith (arith op) (term_of node e1 n) (term_of node e2 n)
+       | _ ->
+          failwith "transform_aez::term_of::Only two operandes expected"
+     end
+  | Typed_ast.TE_arrow (e1 ,e2) ->
+     let e1, e2 = e1.texpr_desc, e2.texpr_desc in
+     Term.make_ite
+       (Formula.make_lit Formula.Eq [n; Term.make_int (Num.Int 0)])
+       (term_of node e1 n)
+       (term_of node e2 (Term.make_arith Term.Minus n (Term.make_int (Num.Int 1))))
+    
+  | Typed_ast.TE_pre(e) ->
+     let e = e.texpr_desc in
+     term_of node e (Term.make_arith Term.Minus n (Term.make_int (Num.Int 1)))    
+     
   | _ ->
-     failwith "transform_aez::make_term::Not Implemented"
+     failwith "transform_aez::term_of::Not Implemented"
 
-(************************AEZ FORMULA******************************)
-let arith op = 
-  match op with 
-  | Op_add |Op_add_f -> Term.Plus
-  | Op_sub|Op_sub_f -> Term.Sub
-  | Op_mul |Op_mul_f -> Term.Mul
-  | Op_div |Op_div_f -> Term.Div
-  | Op_mod ->Term.Modulo
-  |_    -> failwith "incorrect operator"
-
-
-let logic op =
-  match op with 
-  | Op_and -> Formula.And
-  | Op_or -> Formula.Or
-  | Op_impl -> Formula.Imp
-  | Op_not -> Formula.Not
-  | _ -> failwith "not a logical operation"
-
-let f_operation code ts =
-  match ts with 
-  |t ::ts -> let combine = Term.make_arith (arith code ) make_term t in 
-             List.fold_left combine ts 
-  | _ -> failwith "incorrect op"
-
-
-let f_combinator code fs =
-  Formula.make (logic code) fs
-
-
-let f_comp code fs =
-  match code with 
-  | Op_eq -> Formula.make_lit Formula.Eq ( List.map make_term )fs
-  | Op_lt -> Formula.make_lit Formula.Lt ( List.map make_term )fs
-  | Op_le -> Formula.make_lit Formula.Le ( List.map make_term )fs
-  | Op_neq -> Formula.make_lit Formula.Neq ( List.map make_term )fs
-  | Op_gt -> Formula.make Formula.Not [Formula.make_lit Formula.Le ( List.map make_term )fs]
-  | Op_ge -> Formula.make Formula.Not [Formula.make_lit Formula.Lt ( List.map make_term )fs]
-  | _ -> failwith "not a comparison"
-       
-       
+    
 let rec make_formula
-          (node: z_node)
-          (sym: Aez.Hstring.t)
-          (expr: Typed_ast.t_expr_desc)
-          (n: Term.t) =
+      (node: z_node)
+      (sym: Aez.Hstring.t)
+      (expr: Typed_ast.t_expr_desc)
+      (n: Term.t) =
+  Printf.printf "Make_formula\n";
   let formula =
-    Printf.printf "Make_formula\n";
     match expr with
-    | Typed_ast.TE_const(c) ->
-       Formula.make_lit Formula.Eq
-         [ Term.make_app sym [n] ; make_term expr ]
-
     | Typed_ast.TE_ident(id) ->
        let var = Iota.find id.name node.symboles in
        Formula.make_lit Formula.Eq
@@ -124,39 +145,44 @@ let rec make_formula
            Term.make_app var [n] ]
        
     | Typed_ast.TE_op (op, el) ->
-       match op with
-       | Op_add | Op_sub
-         | Op_mult | Op_div
-         | Op_mod | Op_add_f
-         | Op_sub_f | Op_mul_f
-         | Op_div_f ->
-          Formula.make_lit Formula.Eq
-            [ Term.make_app sym [n]; f_operation op el ]
-         
-       | Op_and | Op_or | Op_impl | Op_not ->
-          Formula.make_lit Formula.Eq
-            [ Term.make_app sym [n]; f_combinator op el ]
-         
-       |Op_if  ->
-         match el with
-         | [ cond; thn; els ] ->
-            Fomula.make_lit Formula.Eq
-              [ Term.make_app sym [n];
-                Term.make_ite cond thn els ]
-         | _  ->failwith "transform_aez::make_formula::Invalid match for IfThenElse"
-
+       begin
+         match op with
          | Op_eq | Op_neq
-           | Op_lt | Op_le
-           | Op_gt | Op_ge -> (*normalize*)
-            Fomula.make_lit Formula.Eq
-              [ Term.make_app sym [n];
-                f_comp op el ]
-         (*
-  | Typed_ast.TE_arrow (t1 ,t2) ->
-
-  | TE_pre t  ->
-          *)
-         | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
+           | Op_lt | Op_le ->
+            let aux_n =
+              make_formula node sym (Typed_ast.TE_const (Cbool true)) n
+            in
+            Formula.make Formula.And
+              [ Formula.make Formula.Imp [ aux_n; formula_of node expr n ] ;
+                Formula.make Formula.Imp [ formula_of node expr n; aux_n ] ]
+         (* OR [ formula_of sym expr n] *)
+            
+         (* | Op_and | Op_or | Op_impl | Op_not ->
+          *    Formula.make_lit Formula.Eq
+          *      [ Term.make_app sym [n]; formula_of op el n] *)
+            
+         | Op_add | Op_sub | Op_mul | Op_div | Op_mod
+           | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f ->
+            Formula.make_lit Formula.Eq
+              [ Term.make_app sym [n]; term_of node expr n ]
+           
+         | Op_if  ->
+            match el with
+            | [ cond; thn; els ] ->
+               let cond, thn, els =
+                 (cond.texpr_desc, thn.texpr_desc, els.texpr_desc) in
+               Formula.make_lit Formula.Eq
+                 [ Term.make_app sym [n];
+                   Term.make_ite
+                     (formula_of node cond n)
+                     (term_of node thn n)
+                     (term_of node els n)
+                 ]
+              
+            | _ ->
+               failwith "transform_aez::make_formula::Invalid match for IfThenElse"
+       end
+    | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
   let fmt =
     Format.make_formatter
@@ -165,9 +191,8 @@ let rec make_formula
   in
   Smt.Formula.print fmt formula;
   formula
+ 
   
-  
-
 (* Eventuellement faire cette transformation 
  avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
 let create_couple_var_ty (node: z_node) (var:Ident.t) (ty: Asttypes.base_ty)
@@ -175,19 +200,18 @@ let create_couple_var_ty (node: z_node) (var:Ident.t) (ty: Asttypes.base_ty)
   Printf.printf "    <Create_couple_var_ty>\n";
   (Iota.find var.name node.symboles, ty)
 
-  
+
+(*  *)
 let build_formula
       (node: z_node)
       (patt_ty: Aez.Hstring.t * Asttypes.base_ty)
       (expr: Typed_ast.t_expr) =
   Printf.printf "    <Build_formula>\n";
   let var_symbol = fst patt_ty in
-  (fun (n: Term.t) -> make_formula node var_symbol expr.texpr_desc n) (Term.make_int (Num.Int 0))
+  (fun (n: Term.t) -> make_formula node var_symbol expr.texpr_desc n)
 
-
-
-(* Term = ite + operateur *)
-(* Formula =  comparateur | combinateur *)
+  
+(*  *)
 let normalize
       (node: z_node)
       (patts: (Hstring.t * Asttypes.base_ty) list)
@@ -205,9 +229,8 @@ let normalize
               match op with
               | Op_eq | Op_neq
                 | Op_lt | Op_le
-                | Op_gt | Op_ge
                 | Op_not| Op_and
-                | Op_or ->
+                | Op_or | Op_impl ->
                  let fresh_var =
                    declare_symbol node (Printf.sprintf "aux%d" !i)
                      [Type.type_int]
@@ -285,6 +308,30 @@ let equs_aez (node:z_node) (equs: Typed_ast.t_equation) =
    est appelé un "stream".
 
  *)
+
+let convert
+      (node: z_node)
+      (eq: Typed_ast.t_equation)
+  =
+  Printf.printf "<Convert>\n";
+  match eq.teq_expr.texpr_desc with
+  | Typed_ast.TE_op(op, el) ->
+     begin
+       match op with
+       | Op_gt ->
+          Printf.printf "Done !\n";
+          { eq with
+            teq_expr={ eq.teq_expr with
+                       texpr_desc=Typed_ast.TE_op(Op_lt, (List.rev el));};}          
+       | Op_ge ->
+            Printf.printf "Done !\n";
+          { eq with
+            teq_expr={ eq.teq_expr with
+                       texpr_desc=Typed_ast.TE_op(Op_le, (List.rev el));};}
+       | _ -> eq
+     end
+  | _ -> eq
+    
 let ast_to_astaez (tnode : Typed_ast.t_node) =
   Printf.printf "    <Ast_to_astaez>: ";
   Printf.printf "Node=%s\n\n" tnode.tn_name.name;
@@ -298,20 +345,28 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
       symboles = Iota.empty;
     }
   in   
-  let input = (* DONE *)
+  let input  = (* DONE *)
     List.map (var_aez node) tnode.tn_input in
   let output = (* DONE *)
     List.map (var_aez node) tnode.tn_output in  
-  let local = (* DONE *)
+  let local  = (* DONE *)
     List.map (var_aez node) tnode.tn_local in
   
   (* Printf.printf "Liste des patterns:\n";
    * List.iter (fun (eq: Typed_ast.t_equation) ->
    *     List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs; *)
-  let equs = (* PARTIALLY DONE *)
+
+  let zequs = List.map (convert node) tnode.tn_equs in
+  (* PARTIALLY DONE *)
+  let equs = 
     List.flatten (List.map (equs_aez node) tnode.tn_equs) in
+
   Printf.printf "    Liste des elements de Iota:\n";
-  Iota.iter (fun k e -> Printf.printf "      --> %s , %s\n" (k) (Hstring.view e)) node.symboles;
+  Iota.iter
+    (fun k e -> Printf.printf "      --> %s , %s\n" (k)
+                  (Hstring.view e))
+    node.symboles;
+  
   { node with
     node_input = input;
     node_output = output;

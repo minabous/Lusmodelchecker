@@ -1,5 +1,4 @@
 (* Arbres de syntaxe abstraite typés *)
-
 open Asttypes
 
 type typed_var = Ident.t * base_ty
@@ -37,6 +36,3 @@ type t_node =
       tn_loc: location; }
 
 type t_file = t_node list
-
-
-
