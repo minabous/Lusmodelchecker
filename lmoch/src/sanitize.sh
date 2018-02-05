@@ -4,9 +4,11 @@
 # Clear all backup files from Emacs
 cd .
 rm -f --preserve-root *.*~
+rm -f --preserve-root *.ml#
 
 cd ../examples/
 rm -f --preserve-root *.*~
+rm -f --preserve-root *.ml#
 
 # Also clean the script itself Optionel
 # rm -f /home/stephane/Documents/Ocaml/Chapter2/_build/sanitize.sh

@@ -1,3 +1,5 @@
+open Aez
+
 type constant = Asttypes.const
               
 type term_op = Op_plus |  Op_minus | Op_times |  Op_div | Op_mod
@@ -39,10 +41,10 @@ module Iota = Map.Make(String)
 
 type z_node =
   { node_name: ident;
-    node_input: (Aez.Hstring.t * Asttypes.base_ty) list;
-    node_output: (Aez.Hstring.t * Asttypes.base_ty) list;
-    node_vlocal: (Aez.Hstring.t * Asttypes.base_ty) list;
-    node_equs: ( int -> Aez.Smt.Formula.t) list;
+    node_input: (Hstring.t * Asttypes.base_ty) list;
+    node_output: (Hstring.t * Asttypes.base_ty) list;
+    node_vlocal: (Hstring.t * Asttypes.base_ty) list;
+    node_equs: (Smt.Term.t -> Aez.Smt.Formula.t) list;
     node_loc: Asttypes.location;
-    mutable symboles: Aez.Hstring.t Iota.t;
+    mutable symboles: Hstring.t Iota.t;
   }

@@ -70,7 +70,9 @@ let () =
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
-    Transform_aez.aezdify ft 0;
+    let ftz = Transform_aez.aezdify ft in
+    ();
+    (* K_induction.check ftz 2 *)
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
     exit 0

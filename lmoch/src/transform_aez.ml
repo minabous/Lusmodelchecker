@@ -13,35 +13,38 @@ module BMC_solver = Smt.Make(struct end)
 module IND_solver = Smt.Make(struct end)
 
 let i = ref 0
-             
+      
 let declare_symbol (node:z_node) (name:String.t) t_in t_out =
   let x = Hstring.make name in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add name x node.symboles;
   Printf.printf "(%s, %s)\n" name (Hstring.view x);
   x
-   
+  
 let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
   Printf.printf "    <Var_aez>\n";
-    match input with
-    | (v, ty) ->
-       Printf.printf "    Nom des variables+Hstring:  ";
-       match ty with
-       | Asttypes.Tbool ->
-          (declare_symbol node v.name [Type.type_int] Type.type_bool, ty)
-       | Asttypes.Tint  ->
-          (declare_symbol node v.name [Type.type_int] Type.type_int, ty)
-       | Asttypes.Treal ->
-          (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
+  match input with
+  | (v, ty) ->
+     Printf.printf "    Nom des variables+Hstring:  ";
+     match ty with
+     | Asttypes.Tbool ->
+        (declare_symbol node v.name [Type.type_int] Type.type_bool, ty)
+     | Asttypes.Tint  ->
+        (declare_symbol node v.name [Type.type_int] Type.type_int, ty)
+     | Asttypes.Treal ->
+        (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
 (* | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float" *)
 
-  
+       
 (* 
    Ici pour chaque Patt = expr, on renvoit une Formula
    afin de construire la liste des formules à prouver
-*)
+ *)
 
-let rec make_term expr =
+(**********************AEZ_term*********************)
+
+
+let rec make_term exp =
   Printf.printf "Make_term\n";
   match expr with
   | Typed_ast.TE_const(c) ->
@@ -55,12 +58,53 @@ let rec make_term expr =
           end
        | Asttypes.Cint(i) ->  Term.make_int (Int i)
        | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
-       (* | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)" *)
+                                             (* | _ -> failwith "transform_aez::make_term::Unknown constant type (only int are available yet)" *)
      end
+    
   | _ ->
      failwith "transform_aez::make_term::Not Implemented"
-          
-    
+
+(************************AEZ FORMULA******************************)
+let arith op = 
+  match op with 
+  | Op_add |Op_add_f -> Term.Plus
+  | Op_sub|Op_sub_f -> Term.Sub
+  | Op_mul |Op_mul_f -> Term.Mul
+  | Op_div |Op_div_f -> Term.Div
+  | Op_mod ->Term.Modulo
+  |_    -> failwith "incorrect operator"
+
+
+let logic op =
+  match op with 
+  | Op_and -> Formula.And
+  | Op_or -> Formula.Or
+  | Op_impl -> Formula.Imp
+  | Op_not -> Formula.Not
+  | _ -> failwith "not a logical operation"
+
+let f_operation code ts =
+  match ts with 
+  |t ::ts -> let combine = Term.make_arith (arith code ) make_term t in 
+             List.fold_left combine ts 
+  | _ -> failwith "incorrect op"
+
+
+let f_combinator code fs =
+  Formula.make (logic code) fs
+
+
+let f_comp code fs =
+  match code with 
+  | Op_eq -> Formula.make_lit Formula.Eq ( List.map make_term )fs
+  | Op_lt -> Formula.make_lit Formula.Lt ( List.map make_term )fs
+  | Op_le -> Formula.make_lit Formula.Le ( List.map make_term )fs
+  | Op_neq -> Formula.make_lit Formula.Neq ( List.map make_term )fs
+  | Op_gt -> Formula.make Formula.Not [Formula.make_lit Formula.Le ( List.map make_term )fs]
+  | Op_ge -> Formula.make Formula.Not [Formula.make_lit Formula.Lt ( List.map make_term )fs]
+  | _ -> failwith "not a comparison"
+       
+       
 let rec make_formula
           (node: z_node)
           (sym: Aez.Hstring.t)
@@ -69,38 +113,50 @@ let rec make_formula
   let formula =
     Printf.printf "Make_formula\n";
     match expr with
-  | Typed_ast.TE_const(c) ->
-     Formula.make_lit Formula.Eq
-       [ Term.make_app sym [n] ; make_term expr ]
-    
-  | Typed_ast.TE_ident(id) ->
-     let var = Iota.find id.name node.symboles in
-     Formula.make_lit Formula.Eq
-       [ Term.make_app sym [n];
-         Term.make_app var [n] ]
-     
-  | Typed_ast.TE_op (op, el) ->
-     begin
+    | Typed_ast.TE_const(c) ->
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n] ; make_term expr ]
+
+    | Typed_ast.TE_ident(id) ->
+       let var = Iota.find id.name node.symboles in
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n];
+           Term.make_app var [n] ]
+       
+    | Typed_ast.TE_op (op, el) ->
        match op with
-       | Op_add ->
-          begin
-            match el with
-            | e1 :: e2 :: [] ->
-               Formula.make_lit Formula.Eq
-                 [Term.make_app sym [n];
-                  Term.make_arith Term.Plus
-                    (make_term e1.texpr_desc)
-                    (make_term e2.texpr_desc)]
-            | _ ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opéarande 
-                         pour un opérateur Plus ??"
-          end
-       | _ ->
-          failwith "transform_aez::make_formula::List match operators not implemented"
-     end
-  | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
+       | Op_add | Op_sub
+         | Op_mult | Op_div
+         | Op_mod | Op_add_f
+         | Op_sub_f | Op_mul_f
+         | Op_div_f ->
+          Formula.make_lit Formula.Eq
+            [ Term.make_app sym [n]; f_operation op el ]
+         
+       | Op_and | Op_or | Op_impl | Op_not ->
+          Formula.make_lit Formula.Eq
+            [ Term.make_app sym [n]; f_combinator op el ]
+         
+       |Op_if  ->
+         match el with
+         | [cond ;thn ; els] ->
+            Fomula.make_lit Formula.Eq
+              [ Term.make_app sym [n];
+                Term.make_ite cond thn els ]
+         |_  ->failwith "transform_aez::make_formula::Invalid match for IfThenElse"
+
+         | Op_eq | Op_neq
+           | Op_lt | Op_le
+           | Op_gt | Op_ge -> (*normalize*)
+            Fomula.make_lit Formula.Eq
+              [ Term.make_app sym [n];
+                f_comp op el ]
+         (*
+  | Typed_ast.TE_arrow (t1 ,t2) ->
+
+  | TE_pre t  ->
+          *)
+         | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
   let fmt =
     Format.make_formatter
@@ -109,54 +165,15 @@ let rec make_formula
   in
   Smt.Formula.print fmt formula;
   formula
-  (*
-       | Op_sub ->
-       | [] | [a] ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opéarande 
-                         pour un opérateur Plus ??"
-            | e :: tl ->
-               Term.make_arith Plus (make_term [e]) (make_term tl)
-          | Op_mul ->
-          | Op_div ->
-          | Op_mod ->
-          | Op_add_f ->
-          | Op_sub_f ->
-          | Op_mul_f ->
-          | Op_div_f ->
-        *)
-          (*
-          | Op_eq  -> 
-          begin
-            match el with
-            | [] | [a] ->
-               failwith "transform_aez::
-                         create_application::
-                         Moins de deux opérandes 
-                         pour un opérateur egal ??"
-            | e :: tl ->
-               Term.make_arith Plus (make_term [e]) (make_term tl)
-          end
-       | Op_neq ->        
-       | Op_lt  -> Formula.make
-       | Op_le  ->
-       | Op_gt  ->
-       | Op_ge  ->
   
-          | Op_not   ->
-          | Op_and   ->
-          | Op_or   ->
-          | Op_impl ->
-          | Op_if   ->
-   *)
+  
 
 (* Eventuellement faire cette transformation 
  avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
 let create_couple_var_ty (node: z_node) (var:Ident.t) (ty: Asttypes.base_ty)
     : Aez.Hstring.t * Asttypes.base_ty =
   Printf.printf "    <Create_couple_var_ty>\n";
-    (Iota.find var.name node.symboles, ty)
+  (Iota.find var.name node.symboles, ty)
 
   
 let build_formula
@@ -253,7 +270,7 @@ let equs_aez (node:z_node) (equs: Typed_ast.t_equation) =
     patterns
     expressions
 
-  (* Note : equs = liste des equations.
+(* Note : equs = liste des equations.
    chaque equations est de la forme:                     
    (v, ..., vn) = expr, ..., exprn
    Le but est de transformer chaque formule par :
@@ -267,7 +284,7 @@ let equs_aez (node:z_node) (equs: Typed_ast.t_equation) =
    De plus chaque vars telque x = (x0, x1 .. xn) 
    est appelé un "stream".
 
-*)
+ *)
 let ast_to_astaez (tnode : Typed_ast.t_node) =
   Printf.printf "    <Ast_to_astaez>: ";
   Printf.printf "Node=%s\n\n" tnode.tn_name.name;
@@ -293,8 +310,8 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
    *     List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs; *)
   let equs = (* PARTIALLY DONE *)
     List.flatten (List.map (equs_aez node) tnode.tn_equs) in
-   Printf.printf "    Liste des elements de Iota:\n";
-   Iota.iter (fun k e -> Printf.printf "      --> %s , %s\n" (k) (Hstring.view e)) node.symboles;
+  Printf.printf "    Liste des elements de Iota:\n";
+  Iota.iter (fun k e -> Printf.printf "      --> %s , %s\n" (k) (Hstring.view e)) node.symboles;
   { node with
     node_input = input;
     node_output = output;
@@ -319,11 +336,3 @@ let aezdify (ast_node: Typed_ast.t_node list) =
   Printf.printf "<Aezdify> end\n";
   laez
 
-
-
-
- 
- 
-
-
- 
