@@ -127,7 +127,7 @@ and term_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Smt.Term.t) =
      term_of node e (Term.make_arith Term.Minus n (Term.make_int (Num.Int 1)))    
      
   | _ ->
-     failwith "transform_aez::term_of::Not Implemented"
+     failwith "transform_aez::term_of::Not implemented"
 
     
 let rec make_formula
@@ -135,11 +135,17 @@ let rec make_formula
       (sym: Aez.Hstring.t)
       (expr: Typed_ast.t_expr_desc)
       (n: Term.t) =
-  Printf.printf "Make_formula\n";
+  Printf.printf "<Make_formula>\n";
   let formula =
     match expr with
+    | Typed_ast.TE_const(c) ->
+              Printf.printf "%s = TE_const(_)\n" (Hstring.view sym);
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n]; term_of node expr n ]
+       
     | Typed_ast.TE_ident(id) ->
        let var = Iota.find id.name node.symboles in
+       Printf.printf "%s = TE_ident(%s)\n" (Hstring.view sym) id.name;
        Formula.make_lit Formula.Eq
          [ Term.make_app sym [n];
            Term.make_app var [n] ]
@@ -152,36 +158,76 @@ let rec make_formula
             let aux_n =
               make_formula node sym (Typed_ast.TE_const (Cbool true)) n
             in
+            Printf.printf "%s = TE_op(%s, _)\n"
+              (Hstring.view sym)
+              ((fun o -> match o with Op_eq -> "eq"
+                                     |Op_neq -> "neq"
+                                     |Op_lt -> "lt"
+                                     |Op_le -> "le") op);
+            
             Formula.make Formula.And
               [ Formula.make Formula.Imp [ aux_n; formula_of node expr n ] ;
                 Formula.make Formula.Imp [ formula_of node expr n; aux_n ] ]
-         (* OR [ formula_of sym expr n] *)
-            
-         (* | Op_and | Op_or | Op_impl | Op_not ->
-          *    Formula.make_lit Formula.Eq
-          *      [ Term.make_app sym [n]; formula_of op el n] *)
             
          | Op_add | Op_sub | Op_mul | Op_div | Op_mod
            | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f ->
+            Printf.printf "%s = TE_op(%s, _)\n"
+              (Hstring.view sym)
+              ((fun o -> match o with Op_add|Op_add_f  -> "+"
+                                      |Op_sub|Op_sub_f -> "-"
+                                      |Op_mul|Op_mul_f -> "*"
+                                      |Op_div|Op_div_f -> "/") op);
+            
             Formula.make_lit Formula.Eq
               [ Term.make_app sym [n]; term_of node expr n ]
            
          | Op_if  ->
-            match el with
-            | [ cond; thn; els ] ->
-               let cond, thn, els =
-                 (cond.texpr_desc, thn.texpr_desc, els.texpr_desc) in
-               Formula.make_lit Formula.Eq
-                 [ Term.make_app sym [n];
-                   Term.make_ite
-                     (formula_of node cond n)
-                     (term_of node thn n)
-                     (term_of node els n)
-                 ]
-              
-            | _ ->
-               failwith "transform_aez::make_formula::Invalid match for IfThenElse"
+            begin
+              match el with
+              | [ cond; thn; els ] ->
+                 let cond, thn, els =
+                   (cond.texpr_desc, thn.texpr_desc, els.texpr_desc) in
+                 Printf.printf "%s = TE_op(if, _)\n" (Hstring.view sym);
+                 
+                 Formula.make_lit Formula.Eq
+                   [ Term.make_app sym [n];
+                     Term.make_ite
+                       (formula_of node cond n)
+                       (term_of node thn n)
+                       (term_of node els n)
+                   ]
+                 
+              | _ ->
+                 failwith "transform_aez::make_formula::Invalid match for IfThenElse"
+            end
+         | _ ->
+            failwith "transform_aez::make_formula::Invalid operator"
        end
+    | Typed_ast.TE_arrow(_, _) ->
+       Printf.printf "%s = TE_arrow(_, _)\n" (Hstring.view sym);
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n]; term_of node expr n ]
+       
+      | Typed_ast.TE_pre(_) ->
+       Printf.printf "%s = TE_pre(_)\n" (Hstring.view sym);
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n]; term_of node expr n ]
+       
+    | Typed_ast.TE_prim(id, el) ->
+       Printf.printf "%s = TE_prim(%s, _)\n" (Hstring.view sym) id.name;
+          Formula.make_lit Formula.Eq
+            [ Term.make_app sym [n]; term_of node expr n ]
+
+    | Typed_ast.TE_tuple(_) ->
+       Printf.printf "%s = TE_tuple(_)\n" (Hstring.view sym);
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n]; term_of node expr n ]
+       
+    | Typed_ast.TE_app(id, _) ->
+       Printf.printf "%s = TE_app(%s, _)\n" (Hstring.view sym) id.name;
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n]; term_of node expr n ]
+       
     | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
   let fmt =

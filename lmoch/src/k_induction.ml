@@ -3,15 +3,13 @@ open Smt
 open Num
 module F = Formula
 module T = Term
-open Typed_aez
    
 exception FALSE_PROPERTY
 exception TRUE_PROPERTY
-exception BASE_CASE_FAILS
+exception UNKNOWN_PROPERTY
 
 module BMC_solver = Smt.Make(struct end) 
 module IND_solver = Smt.Make(struct end)
-
 
 (* *************************************************************** *)
 (** delta_incr: Génère la conjonction de toutes les formules 
@@ -20,10 +18,8 @@ module IND_solver = Smt.Make(struct end)
     @return:
 
  **)
-let delta_incr (i:int) formulas =
-  Formula.make Formula.And (List.map (fun f -> f i) formulas)
-
-
+let delta_incr (n: Term.t) formulas =
+  Formula.make Formula.And (List.map (fun f -> f n) formulas)
 
   
 (* *************************************************************** *)
@@ -32,90 +28,84 @@ let delta_incr (i:int) formulas =
     @param:
     @return:
  **)
-let p_incr (i:int) oks =
+let p_incr (n: Term.t) outs =
   Formula.make Formula.And
     (List.map
-       (fun out_i -> Formula.make_lit Formula.Eq [Term.make_app out_i [i] ; Term.t_true])
-       oks) 
-
-
+       (fun out_i -> Formula.make_lit Formula.Eq [Term.make_app (fst out_i) [n] ; Term.t_true])
+       outs) 
 
 
 (* *************************************************************** *)
-(*cas de base*)
-let bmc k =
-  Format.printf "Bmc : node base case " ; 
+(* Cas de base*)
+let assumes goal formul_list k =
+  Printf.printf "Assuming: Base case conditions\n" ; 
   for i = 0 to k - 1 do 
-    let delta_i = delta i formul_list in
-    BMC_solver.assume ~id:0 (delta_i);
+    BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list);
   done;
-  BMC_solver.check();
+  BMC_solver.check()
 
-  Format.printf"checking base case condition\n";
-  for i = 0 to k-1 do 
-    let ok_i = p_incr_i i variable  in 
-    if not (BMC_solver.entails ~id:0 ok_i) then (raise BASE_CASE_FAILS) 
-  done;
-  
 
-  let check node_list (k: int) =
-  (*on recupere le premier node aez dans la liste list_aez*)
-  let aez_node = List.hd node_list in
+let entails outs =
+  Printf.printf"Entailing: Base case conditions\n";
+  BMC_solver.entails ~id:0 (Formula.make Formula.And (List.init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs)))  
+
+let check (node_list: Typed_aez.z_node list) (k: int) =
+  (* On récupère le premier node aezdifier dans la liste des noeuds *)
+  (* De manière générale: Récupèrer le nom du node checker *)
+  (* A l'entrée du programme. *)
+  (* Si aucun nom spécifié, tentez de checker tout les nodes comme *)
+  (* avec frama-c.  *)
+  let node = List.hd node_list in
+
   (* On récupère les variables de sorties *)
-  let variables_out_list = aez_node.node_output in
-      
-  (* On va chercher la 1er variable out de la liste *)
-  (* De manière générale automatiser pour "m" output *)
-  let out = List.hd variables_out_list in  
+  let outs = node.node_output in
   
-  (* On récupère la listes des lambda-fonctions *)
-  let formul_list = aez_node.equs in
-  
-  (* Stephane: Meme chose ici.*)
-  (* let ok_i = p_incr_i i out  in *) 
-  (* let base =  if not (BMC_solver.entails ~id:0 p_incr_i) then (raise BASE_CASE_FAILS) *)
-  let base =
-    bmc k;
-    entails 
-    BMC_solver.entails ~id:0 Formula.make Formula.And List.init k (fun i -> p_incr i out) in
+  (* On récupère la listes des lambda-fonctions générant les formules *)
+  let formules = node.node_equs in
+  try
+    let base =
+      Printf.printf "Bounded Model Checking\n";
+      assumes delta_incr formules k;
+      entails outs
+    in
+    if not base then (raise FALSE_PROPERTY)
+    else
+      let n =
+        Term.make_app (Transform_aez.declare_symbol node "n" [] Type.type_int) [] in 
+      let n_plus_one =
+        Term.make_arith Term.Plus n (Term.make_int (Num.Int 1)) in
+      let ind =
+        IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n]);
+        IND_solver.assume ~id:0 (delta_incr n formules);
+        IND_solver.assume ~id:0 (delta_incr n_plus_one formules);
+        IND_solver.assume ~id:0 (p_incr n outs);
+        IND_solver.check();
+        IND_solver.entails ~id:0 (p_incr n_plus_one outs)
+      in
+      if ind then (raise TRUE_PROPERTY)
+      else (raise UNKNOWN_PROPERTY)
 
-  let n =
-    Term.make_app (declare_symbol "n" [] Type.type_int) [] in 
-  
-  let kind k =
-    for i = 0 to k do 
-      let kprim = Term.make_arith Term.Plus n (Term.make_int(Num.Int i)) in
-      let delta_i = delta kprim formul_list in
-      let ok_i = p_incr_i kprim variable  in
-      (* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*) 
-      IND_solver.assume ~id:0 (delta_i);
-      IND_solver.check ();
-      IND_solver.assume  ~id:0 ok_i;
-      if (IND_solver.entails ~id:0 ok_i)
-      then (raise FALSE_PROPERTY);
-      
-      if (i < k)
-      then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int   (Num.Int 0);kprim] );
-      
-    done;
-    raise TRUE_PROPERTY
+        (* for i = 0 to k do 
+         *   let kprim = Term.make_arith Term.Plus n (Term.make_int(Num.Int i)) in
+         *   let delta_i = delta kprim formul_list in
+         *   let ok_i = p_incr_i kprim variable  in
+         *   (\* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*\) 
+         *   IND_solver.assume ~id:0 (delta_i);
+         *   IND_solver.check ();
+         *   IND_solver.assume  ~id:0 ok_i;
+         *   if (IND_solver.entails ~id:0 ok_i)
+         *   then (raise FALSE_PROPERTY);
+         *   
+         *   if (i < k)
+         *   then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int   (Num.Int 0);kprim] );
+         *   
+         * done;
+         * raise TRUE_PROPERTY *)
 
-  with
-   | TRUE_PROPERTY -> Format.printf "TRUE PROPERTY"	
-   | FALSE_PROPERTY  -> Format.printf "FALSE PROPERTY"
-   | BASE_CASE_FAILS ->Format.printf "Base case fails"
-
-
-
-
-
-
-
-
-
-
-
-
+      with
+      | TRUE_PROPERTY -> Printf.printf "TRUE PROPERTY"	
+      | FALSE_PROPERTY  -> Printf.printf "FALSE PROPERTY"
+      | UNKNOWN_PROPERTY -> Printf.printf "UNKNOWN PROPERTY"
 
 
 
