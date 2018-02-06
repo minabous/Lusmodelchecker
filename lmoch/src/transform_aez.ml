@@ -34,6 +34,7 @@ let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
         (declare_symbol node v.name [Type.type_int] Type.type_int, ty)
      | Asttypes.Treal ->
         (declare_symbol node v.name [Type.type_int] Type.type_real, ty)
+       
 (* | _ -> failwith "transform_aez::var_aez::Unknown type\n Type Has to be int, bool float" *)
        
        
@@ -242,7 +243,8 @@ let rec make_formula
       (Pervasives.output_substring Pervasives.stdout)
       (fun () -> Pervasives.flush Pervasives.stdout)
   in
-  Smt.Formula.print fmt formula;
+  Smt.Formula.print Format.std_formatter formula;
+  print_newline();
   formula
   
   

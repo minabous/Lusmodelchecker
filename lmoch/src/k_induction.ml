@@ -36,19 +36,32 @@ let p_incr (n: Term.t) outs =
 
 
 (* *************************************************************** *)
-(* Cas de base*)
+(* Cas de base *)
 let assumes goal formul_list k =
   Printf.printf "Assuming: Base case conditions\n" ; 
-  for i = 0 to k - 1 do 
-    BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list);
+  for i = 0 to k - 1 do
+    try
+      BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list)
+    with
+    | e -> Printf.printf "Raise->Assumes delta_incr 0 1"
   done;
-  BMC_solver.check()
-
+  begin
+    try
+      BMC_solver.check()
+    with
+    | e -> Printf.printf"Raise->Check:Base"
+  end
 
 let entails outs =
   Printf.printf"Entailing: Base case conditions\n";
-  BMC_solver.entails ~id:0 (Formula.make Formula.And (List.init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs)))  
-
+  let base =
+    try
+      BMC_solver.entails ~id:0 (Formula.make Formula.And (List.init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs)))
+    with
+    | e -> Printf.printf "Raise->Assumes delta_incr 0 1\n"; true
+  in
+  base
+           
 let check (node_list: Typed_aez.z_node list) (k: int) =
   (* On récupère le premier node aezdifier dans la liste des noeuds *)
   (* De manière générale: Récupèrer le nom du node checker *)
@@ -75,11 +88,36 @@ let check (node_list: Typed_aez.z_node list) (k: int) =
       let n_plus_one =
         Term.make_arith Term.Plus n (Term.make_int (Num.Int 1)) in
       let ind =
-        IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n]);
-        IND_solver.assume ~id:0 (delta_incr n formules);
-        IND_solver.assume ~id:0 (delta_incr n_plus_one formules);
-        IND_solver.assume ~id:0 (p_incr n outs);
-        IND_solver.check();
+        begin
+          try
+            IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n])
+          with
+          | e -> Printf.printf "Raise->Assume 0 <= n\n"
+        end;
+        begin
+          try
+            IND_solver.assume ~id:0 (delta_incr n formules)
+          with
+          | e -> Printf.printf "Raise->Assume delta_incr n\n"
+        end;
+        begin
+          try
+            IND_solver.assume ~id:0 (delta_incr n_plus_one formules)
+          with
+          | e -> Printf.printf "Raise->Assume delta_incr n+1\n"
+        end;
+        begin
+          try
+            IND_solver.assume ~id:0 (p_incr n outs)
+          with
+          | e -> Printf.printf "Raise->Assume p_incr n\n"
+        end;
+        begin
+          try
+            IND_solver.check()
+          with
+          | e -> Printf.printf "Raise->Check:Ind\n"
+        end;
         IND_solver.entails ~id:0 (p_incr n_plus_one outs)
       in
       if ind then (raise TRUE_PROPERTY)
@@ -102,10 +140,10 @@ let check (node_list: Typed_aez.z_node list) (k: int) =
          * done;
          * raise TRUE_PROPERTY *)
 
-      with
-      | TRUE_PROPERTY -> Printf.printf "TRUE PROPERTY"	
-      | FALSE_PROPERTY  -> Printf.printf "FALSE PROPERTY"
-      | UNKNOWN_PROPERTY -> Printf.printf "UNKNOWN PROPERTY"
+  with
+  | TRUE_PROPERTY -> Printf.printf "TRUE PROPERTY\n"	
+  | FALSE_PROPERTY  -> Printf.printf "FALSE PROPERTY\n"
+  | UNKNOWN_PROPERTY -> Printf.printf "UNKNOWN PROPERTY\n"
 
 
 
