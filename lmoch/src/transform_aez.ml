@@ -15,7 +15,7 @@ module IND_solver = Smt.Make(struct end)
 
 let i = ref 0
       
-let declare_symbol (node:z_node) (name:String.t) t_in t_out =
+let declare_symbol (node: z_node) (name: String.t) t_in t_out =
   let x = Hstring.make name in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add name x node.symboles;
@@ -43,7 +43,6 @@ let var_aez (node:z_node) (input : Ident.t * Asttypes.base_ty) =
  *)
 
 
-(* *********************** AEZ FORMULA ************************** *)
 let arith op = 
   match op with 
   | Op_add | Op_add_f -> Term.Plus
@@ -69,8 +68,11 @@ let compare op =
   | Op_neq -> Formula.Neq
   | _ -> failwith "incorrect comparator"     
 
-  
-let rec formula_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Term.t) =
+(* *********************** AEZ FORMULA ************************** *)       
+let rec formula_of
+          (node: z_node)
+          (expr: Typed_ast.t_expr_desc)
+          (n: Term.t) =
   Printf.printf "Formula_of\n";
   match expr with
   | Typed_ast.TE_op(op, el) ->
@@ -83,8 +85,8 @@ let rec formula_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Term.t) =
      | _ ->
         failwith "transform_aez::formula_of::Only two operandes expected"
        
-  (* let e1, e2 = List.nth el 0, List.nth el 1 in
-   * Formula.make (logic op) formula_of *)     
+(* let e1, e2 = List.nth el 0, List.nth el 1 in
+ * Formula.make (logic op) formula_of *)     
 (* *************************** AEZ_term ************************** *)
 and term_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Smt.Term.t) =
   Printf.printf "Term_of\n";  
@@ -100,7 +102,7 @@ and term_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Smt.Term.t) =
           end
        | Asttypes.Cint(i) ->  Term.make_int  (Num.Int i)
        | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
-     end
+     end    
     
   | Typed_ast.TE_ident(id) ->
      let var = Iota.find id.name node.symboles in
@@ -115,13 +117,14 @@ and term_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Smt.Term.t) =
        | _ ->
           failwith "transform_aez::term_of::Only two operandes expected"
      end
+    
   | Typed_ast.TE_arrow (e1 ,e2) ->
      let e1, e2 = e1.texpr_desc, e2.texpr_desc in
      Term.make_ite
        (Formula.make_lit Formula.Eq [n; Term.make_int (Num.Int 0)])
        (term_of node e1 n)
        (term_of node e2 (Term.make_arith Term.Minus n (Term.make_int (Num.Int 1))))
-    
+     
   | Typed_ast.TE_pre(e) ->
      let e = e.texpr_desc in
      term_of node e (Term.make_arith Term.Minus n (Term.make_int (Num.Int 1)))    
@@ -131,15 +134,16 @@ and term_of (node: z_node) (expr: Typed_ast.t_expr_desc) (n: Smt.Term.t) =
 
     
 let rec make_formula
-      (node: z_node)
-      (sym: Aez.Hstring.t)
-      (expr: Typed_ast.t_expr_desc)
-      (n: Term.t) =
+          (node: z_node)
+          (sym: Aez.Hstring.t)
+          (expr: Typed_ast.t_expr_desc)
+          (n: Term.t) =
   Printf.printf "<Make_formula>\n";
+  Printf.printf "expr=%s\n" (Hstring.view sym);
   let formula =
     match expr with
     | Typed_ast.TE_const(c) ->
-              Printf.printf "%s = TE_const(_)\n" (Hstring.view sym);
+       Printf.printf "%s = TE_const(_)\n" (Hstring.view sym);
        Formula.make_lit Formula.Eq
          [ Term.make_app sym [n]; term_of node expr n ]
        
@@ -154,7 +158,8 @@ let rec make_formula
        begin
          match op with
          | Op_eq | Op_neq
-           | Op_lt | Op_le ->
+           | Op_lt | Op_le
+           | Op_gt | Op_ge ->
             let aux_n =
               make_formula node sym (Typed_ast.TE_const (Cbool true)) n
             in
@@ -180,7 +185,7 @@ let rec make_formula
             
             Formula.make_lit Formula.Eq
               [ Term.make_app sym [n]; term_of node expr n ]
-           
+            
          | Op_if  ->
             begin
               match el with
@@ -196,27 +201,29 @@ let rec make_formula
                        (term_of node thn n)
                        (term_of node els n)
                    ]
-                 
+
               | _ ->
                  failwith "transform_aez::make_formula::Invalid match for IfThenElse"
             end
+           
          | _ ->
             failwith "transform_aez::make_formula::Invalid operator"
        end
+      
     | Typed_ast.TE_arrow(_, _) ->
        Printf.printf "%s = TE_arrow(_, _)\n" (Hstring.view sym);
        Formula.make_lit Formula.Eq
          [ Term.make_app sym [n]; term_of node expr n ]
        
-      | Typed_ast.TE_pre(_) ->
+    | Typed_ast.TE_pre(_) ->
        Printf.printf "%s = TE_pre(_)\n" (Hstring.view sym);
        Formula.make_lit Formula.Eq
          [ Term.make_app sym [n]; term_of node expr n ]
        
     | Typed_ast.TE_prim(id, el) ->
        Printf.printf "%s = TE_prim(%s, _)\n" (Hstring.view sym) id.name;
-          Formula.make_lit Formula.Eq
-            [ Term.make_app sym [n]; term_of node expr n ]
+       Formula.make_lit Formula.Eq
+         [ Term.make_app sym [n]; term_of node expr n ]
 
     | Typed_ast.TE_tuple(_) ->
        Printf.printf "%s = TE_tuple(_)\n" (Hstring.view sym);
@@ -237,7 +244,7 @@ let rec make_formula
   in
   Smt.Formula.print fmt formula;
   formula
- 
+  
   
 (* Eventuellement faire cette transformation 
  avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
@@ -257,7 +264,7 @@ let build_formula
   (fun (n: Term.t) -> make_formula node var_symbol expr.texpr_desc n)
 
   
-(*  *)
+(* *   * *)
 let normalize
       (node: z_node)
       (patts: (Hstring.t * Asttypes.base_ty) list)
@@ -283,10 +290,10 @@ let normalize
                      Type.type_bool,
                    Asttypes.Tbool
                  in
-
+                 
                  (* S'il y a moyen de récupérer la valeur finale à
                     la fin du parsing alors initialiser i 
-                    avec cette valeur + 1*)
+                    avec cette valeur + 1 *)
                  let (id: Ident.t) = 
                    {
                      id=(!i);
@@ -314,6 +321,7 @@ let normalize
        failwith "transform_aez::normalize::Invalid_argument"
   in
   aux [] [] patts exprs
+  
 
 (* Cette fonction créée la liste des formules pour construire
  le raisonnement kind par la suite. *)
@@ -370,14 +378,14 @@ let convert
             teq_expr={ eq.teq_expr with
                        texpr_desc=Typed_ast.TE_op(Op_lt, (List.rev el));};}          
        | Op_ge ->
-            Printf.printf "Done !\n";
+          Printf.printf "Done !\n";
           { eq with
             teq_expr={ eq.teq_expr with
                        texpr_desc=Typed_ast.TE_op(Op_le, (List.rev el));};}
        | _ -> eq
      end
   | _ -> eq
-    
+       
 let ast_to_astaez (tnode : Typed_ast.t_node) =
   Printf.printf "    <Ast_to_astaez>: ";
   Printf.printf "Node=%s\n\n" tnode.tn_name.name;
@@ -419,7 +427,6 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
     node_vlocal = local;
     node_equs = equs;
   }
-
 
   
 (* ********************************************************************** *)

@@ -4,9 +4,9 @@ open Asttypes
 type typed_var = Ident.t * base_ty
 
 type t_expr =
-    { texpr_desc: t_expr_desc;
-      texpr_type:  ty;
-      texpr_loc: location; }
+  { texpr_desc: t_expr_desc;
+    texpr_type:  ty;
+    texpr_loc: location; }
 
 and t_expr_desc =
   | TE_const of const
@@ -24,8 +24,8 @@ type t_patt =
       tpatt_loc: location; }
 
 type t_equation =
-    { teq_patt: t_patt;
-      teq_expr: t_expr; }
+  { teq_patt: t_patt;
+    teq_expr: t_expr; }
 
 type t_node =
     { tn_name: Ident.t;
