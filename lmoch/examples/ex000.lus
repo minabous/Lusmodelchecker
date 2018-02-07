@@ -1,16 +1,6 @@
-node ventilateur (x: bool) returns (OK: bool);
-var n1, n2: int;
+node incr (tic: bool) returns (ok: bool);
+var cpt : int;
 let
-  n1 = 5;
-  n2 = n1;
-  OK = false;
-tel
-
-
-node incr (x: bool) returns (OK: bool);
-var n1, n2: int;
-let
-  n1 = 5;
-  n2 = n1;
-  OK = false;
+  cpt = (0 -> pre cpt) + if tic then 1 else 0;
+  ok = true -> (pre cpt) <= cpt;
 tel

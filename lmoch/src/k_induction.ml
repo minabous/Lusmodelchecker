@@ -29,9 +29,18 @@ let delta_incr (n: Term.t) formulas =
     @return:
  **)
 let p_incr (n: Term.t) outs =
-  Formula.make Formula.And
-    (List.map
-       (fun out_i -> Formula.make_lit Formula.Eq [Term.make_app (fst out_i) [n] ; Term.t_true])
+  (* Donc ici on fait la séparation pour ne pas se retrouver
+     avec Make And [ok(n)] 
+   *)
+  match outs with    
+  | [] ->
+     raise (Invalid_argument "p_incr")
+  | [out] ->
+     Formula.make_lit Formula.Eq [Term.make_app (fst out) [n] ; Term.t_true]
+  | _ ->   
+     Formula.make Formula.And
+       (List.map
+          (fun out_i -> Formula.make_lit Formula.Eq [Term.make_app (fst out_i) [n] ; Term.t_true])
        outs) 
 
 
@@ -43,13 +52,28 @@ let assumes goal formul_list k =
     try
       BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list)
     with
-    | e -> Printf.printf "Raise->Assumes delta_incr 0 1"
+    | Smt.Unsat il -> Printf.printf "Raise->(Assumes delta_incr 0 1):Unsat\n"
+    | e -> Printf.printf "Raise->(Assumes delta_incr 0 1):?\n" (* Le raise tombe ici donc il faut vérifier à quelle exception on a affaire *)
   done;
   begin
     try
       BMC_solver.check()
     with
-    | e -> Printf.printf"Raise->Check:Base"
+    | Smt.Error e ->
+       begin
+         Printf.printf"Raise->Check:Base\n";
+         match e with
+         | Smt.DuplicateTypeName(hs)
+           | Smt.DuplicateSymb(hs) ->
+            Printf.printf"Duplicate Symbol or Type %s\n" (Hstring.view hs)
+         | Smt.UnknownType(hs)
+           | Smt.UnknownSymb(hs) ->
+            Printf.printf"Unknown Symbol or Type %s\n" (Hstring.view hs)
+       end
+    | Smt.Unsat il ->
+       Printf.printf"Raise->Check:Base:Unsat\n"
+    | _ ->
+       Printf.printf"Raise->Check:Base:?\n"
   end
 
 let entails outs =

@@ -73,7 +73,7 @@ let () =
     let ftz = Transform_aez.aezdify ft in
     K_induction.check ftz 2;
     (* XXX TODO XXX *)
-    Format.printf "Don't know@.";
+    (* Format.printf "Don't know@."; *)
     exit 0
   with
     | Lexical_error s ->
