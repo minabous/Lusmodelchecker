@@ -75,12 +75,19 @@ let assumes goal formul_list k =
     | _ ->
        Printf.printf"Raise->Check:Base:?\n"
   end
+let init n f =
+  if n < 0 then raise (Invalid_argument "init");
+  let rec ini i acc =
+    if i = 0 then acc
+    else ini (i-1) (f (i-1) :: acc)
+  in
+  ini n []            
 
 let entails outs =
   Printf.printf"Entailing: Base case conditions\n";
   let base =
     try
-      BMC_solver.entails ~id:0 (Formula.make Formula.And (List.init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs)))
+      BMC_solver.entails ~id:0 (Formula.make Formula.And (init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs)))
     with
     | e -> Printf.printf "Raise->Assumes delta_incr 0 1\n"; true
   in
