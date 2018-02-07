@@ -53,7 +53,7 @@ let assumes goal formul_list k =
       BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list)
     with
     | Smt.Unsat il -> Printf.printf "Raise->(Assumes delta_incr 0 1):Unsat\n"
-    | e -> Printf.printf "Raise->(Assumes delta_incr 0 1):?\n" (* Le raise tombe ici donc il faut vérifier à quelle exception on a affaire *)
+    (* | e -> Printf.printf "Raise->(Assumes delta_incr 0 1):?\n" (\* Le raise tombe ici donc il faut vérifier à quelle exception on a affaire *\) *)
   done;
   begin
     try
