@@ -469,15 +469,20 @@ let type_node n =
   check_causality node.tn_loc node.tn_input equs;
   node
 
+
+
+
 let check_main ft main =
   let (_, ty), is_prim =
     try Delta.find main with Not_found -> error dummy_loc (UnboundNode main)
   in
   match ty, is_prim with
   | (_, [Tbool]), false -> ()
+(*********pour les noeaus qui ont plusierus outputs  *)
+  |(t_in, _),false -> ()
   | (t_in, t_out), false ->
      let n = List.find (fun n -> n.tn_name.Ident.name = main) (List.rev ft) in
-      error n.tn_loc (BadMain (t_in, t_out))
+      error n.tn_loc (BadMain (t_in, t_out)) 
   | _ -> errors dummy_loc "The main node cannot be a primitive function"
 
 let type_file f main =
