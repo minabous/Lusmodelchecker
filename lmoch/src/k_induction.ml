@@ -3,6 +3,7 @@ open Smt
 open Num
 module F = Formula
 module T = Term
+open Typed_aez
    
 exception FALSE_PROPERTY
 exception TRUE_PROPERTY
@@ -18,9 +19,9 @@ module IND_solver = Smt.Make(struct end)
     @return:
 
  **)
-let delta_incr (n: Term.t) formulas =
+let delta_incr (n: Term.t) (formulas: (Smt.Term.t -> Aez.Smt.Formula.t) list) =
   Formula.make Formula.And (List.map (fun f -> f n) formulas)
-
+  
   
 (* *************************************************************** *)
 (** p_incr: Génère la formule de conjonction entre toutes les formules
@@ -28,7 +29,7 @@ let delta_incr (n: Term.t) formulas =
     @param:
     @return:
  **)
-let p_incr (n: Term.t) outs =
+let p_incr (n: Term.t) (outs: z_var list)  (symboles: Hstring.t Iota.t) =
   (* Donc ici on fait la séparation pour ne pas se retrouver
      avec Make And [ok(n)] 
    *)
@@ -36,11 +37,14 @@ let p_incr (n: Term.t) outs =
   | [] ->
      raise (Invalid_argument "p_incr")
   | [out] ->
-     Formula.make_lit Formula.Eq [Term.make_app (fst out) [n] ; Term.t_true]
-  | _ ->   
+     let sym = (Iota.find (fst out) symboles) in
+     Formula.make_lit Formula.Eq [Term.make_app sym [n] ; Term.t_true]
+  | _ ->
      Formula.make Formula.And
        (List.map
-          (fun out_i -> Formula.make_lit Formula.Eq [Term.make_app (fst out_i) [n] ; Term.t_true])
+          (fun out_i ->
+            let sym_i = (Iota.find (fst out_i) symboles) in
+            Formula.make_lit Formula.Eq [Term.make_app sym_i [n] ; Term.t_true])
        outs) 
 
 
@@ -83,17 +87,17 @@ let init n f =
   in
   ini n []            
 
-let entails outs =
+let entails outs symboles =
   Printf.printf"Entailing: Base case conditions\n";
   let base =
     try
-      BMC_solver.entails ~id:0 (Formula.make Formula.And (init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs)))
+      BMC_solver.entails ~id:0 (Formula.make Formula.And (init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs symboles)))
     with
     | e -> Printf.printf "Raise->Assumes delta_incr 0 1\n"; true
   in
   base
            
-let check (node_list: Typed_aez.z_node list) (k: int) =
+let check (node_list: z_node list) (k: int) =
   (* On récupère le premier node aezdifier dans la liste des noeuds *)
   (* De manière générale: Récupèrer le nom du node checker *)
   (* A l'entrée du programme. *)
@@ -110,12 +114,12 @@ let check (node_list: Typed_aez.z_node list) (k: int) =
     let base =
       Printf.printf "Bounded Model Checking\n";
       assumes delta_incr formules k;
-      entails outs
+      entails outs node.symboles
     in
     if not base then (raise FALSE_PROPERTY)
     else
       let n =
-        Term.make_app (Transform_aez.declare_symbol node "n" [] Type.type_int) [] in 
+        Term.make_app (Transform_aez.declare_symbol_ws node "n" [] Type.type_int) [] in 
       let n_plus_one =
         Term.make_arith Term.Plus n (Term.make_int (Num.Int 1)) in
       let ind =
@@ -139,7 +143,7 @@ let check (node_list: Typed_aez.z_node list) (k: int) =
         end;
         begin
           try
-            IND_solver.assume ~id:0 (p_incr n outs)
+            IND_solver.assume ~id:0 (p_incr n outs node.symboles)
           with
           | e -> Printf.printf "Raise->Assume p_incr n\n"
         end;
@@ -149,7 +153,7 @@ let check (node_list: Typed_aez.z_node list) (k: int) =
           with
           | e -> Printf.printf "Raise->Check:Ind\n"
         end;
-        IND_solver.entails ~id:0 (p_incr n_plus_one outs)
+        IND_solver.entails ~id:0 (p_incr n_plus_one outs node.symboles)
       in
       if ind then (raise TRUE_PROPERTY)
       else (raise UNKNOWN_PROPERTY)

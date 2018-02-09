@@ -1,48 +1,46 @@
 open Aez
-   
-type operateur = Op_plus | Op_minus | Op_times | Op_div | Op_mod
-                                                        
-type comparateur = Cmp_eq | Cmp_neq | Cmp_lt | Cmp_leq
-                                             
-type combinateur = Cmb_and | Cmb_or | Cmb_impl | Cmb_not
+open Asttypes
+open Typed_ast
+
+module Iota = Map.Make(Ident)
+
+type z_var = Ident.t * base_ty
+               
+type operateur =
+  | Calculator of op
+  | Comparator of op
+  | Combinator of op
+  | Branchment of op
 
 type constante = Asttypes.const
 
-type ident = Ident.t
-
-type term =
-  | T_cst of constante
-  | T_op of operateur * term * term
-  | T_ite of formule * term * term
-  | T_formule of formule
-  | T_app of ident * int
+type z_expr =
+  { zexpr_desc: z_expr_desc;
+    zexpr_type:  ty;
+  } 
            
-and formule =
-  | F_term of term
-  | F_cmp of comparateur * term * term
-  | F_lco of combinateur * formule list
-  | F_app of term list
-           
-(*
-type stream_body = SB_term of term | SB_formula of formula
-type stream_declaration = { 
-  sd_ident: ident;
-  sd_type: Asttypes.base_ty;
-  sd_body: stream_body
-} 
- *)
-           
-(* type node = stream_declaration list *)
+and z_expr_desc =
+  | Z_const of const
+  | Z_ident of Ident.t
+  | Z_op of operateur * z_expr list
+  | Z_app of Ident.t * z_expr list
+  | Z_prim of Ident.t * z_expr list
+  | Z_arrow of z_expr * z_expr
+  | Z_pre of z_expr
+  | Z_tuple of z_expr list
 
-
-module Iota = Map.Make(String)            
+             
+type z_equation =
+  { zeq_patt: t_patt;
+    zeq_expr: z_expr; }
+   
 
 type z_node =
-  { node_name: ident;
-    node_input: (Hstring.t * Asttypes.base_ty) list;
-    node_output: (Hstring.t * Asttypes.base_ty) list;
-    node_vlocal: (Hstring.t * Asttypes.base_ty) list;
+  { node_name: Ident.t;
+    node_input: (Ident.t * Asttypes.base_ty) list;
+    node_output: (Ident.t * Asttypes.base_ty) list;
+    node_vlocal: (Ident.t * Asttypes.base_ty) list;
     node_equs: (Smt.Term.t -> Aez.Smt.Formula.t) list;
-    node_loc: Asttypes.location;
+    node_loc: location;
     mutable symboles: Hstring.t Iota.t;
   }
