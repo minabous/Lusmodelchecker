@@ -79,6 +79,7 @@ let assumes goal formul_list k =
     | _ ->
        Printf.printf"Raise->Check:Base:?\n"
   end
+  
 let init n f =
   if n < 0 then raise (Invalid_argument "init");
   let rec ini i acc =

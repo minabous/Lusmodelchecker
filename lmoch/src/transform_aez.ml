@@ -7,25 +7,52 @@ open Asttypes
 module TE = Typed_ast
 
 let i = ref 0
-  
+let debug = false
+
+(** Fonction de debugging. Si b = true
+    alors la fonction f affiche son résultat.
+    
+    @params: b:boolean
+             f:unit -> unit
+    @return: unit   
+ **)
+let debugging b f =
+  if b then f() else ()
+      
+(* ********************* UTILS *********************** *)
+(** Fonction qui déclare un symbole Hstring
+    à partir d'un Ident.t 
+
+ **)
 let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
   let x = Hstring.make v.name in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add v x node.symboles;
-  Printf.printf "(%s, %s)\n" v.name (Hstring.view x)
+  debugging debug (fun () -> (Printf.printf "(%s, %s)\n" v.name (Hstring.view x)))
 
-let declare_symbol_ws (node: z_node) (v: String.t) t_in t_out =
-  let x = Hstring.make v in
+
+(** Fonction qui déclare un symbole Hstring
+    à partir d'une chaine s
+    (ws => "with string")
+
+ **)
+let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
+  let x = Hstring.make s in
   Symbol.declare x t_in t_out;
-  Printf.printf "(%s, %s)\n" v (Hstring.view x);
+  debugging debug (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
   x
-
+(******************************************************************************)
+(** Var_aez:
+    
+    @params:            
+    @return:
+ **)
 let var_aez (node: z_node) (input : TE.typed_var)
     : TE.typed_var  =
-  Printf.printf "    <Var_aez>\n";
+  debugging debug (fun () -> (Printf.printf "    <Var_aez>\n"));
   match input with
   | (v, ty) ->
-     Printf.printf "    Nom des variables+Hstring:  ";
+     debugging debug (fun () -> (Printf.printf "    Nom des variables+Hstring:  "));
      match ty with
      | Asttypes.Tbool ->
         declare_symbol node v [Type.type_int] Type.type_bool;
@@ -41,7 +68,12 @@ let var_aez (node: z_node) (input : TE.typed_var)
    Ici pour chaque Patt = expr, on renvoit une Formula
    afin de construire la liste des formules à prouver
  *)
-        
+
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let arith op = 
   match op with 
   | Op_add | Op_add_f -> Term.Plus
@@ -50,7 +82,6 @@ let arith op =
   | Op_div | Op_div_f -> Term.Div
   | Op_mod -> Term.Modulo
   |_    -> failwith "incorrect operator"
-
 let logic op =
   match op with 
   | Op_and -> Formula.And
@@ -58,7 +89,6 @@ let logic op =
   | Op_impl -> Formula.Imp
   | Op_not -> Formula.Not
   | _ -> failwith "incorrect combinator"
-
 let compare op =
   match op with
   | Op_eq -> Formula.Eq 
@@ -68,12 +98,16 @@ let compare op =
   | _ -> failwith "incorrect comparator"
        
 
-(* *********************** AEZ FORMULA ************************** *)       
+(* *********************** AEZ FORMULA ************************** *)
+(** description:    
+    @params:            
+    @return:
+ **)
 let rec formula_of
           node
           (expr: z_expr_desc)
           n =
-  Printf.printf "Formula_of\n";
+  debugging debug (fun () -> (Printf.printf "Formula_of\n"));
   match expr with
   | Z_ident(id) ->
      Formula.make_lit Formula.Eq
@@ -114,11 +148,14 @@ let rec formula_of
   | _ ->
      failwith "transform_aez::formula_of::Not Implemeted"
     
-(* let e1, e2 = List.nth el 0, List.nth el 1 in
- * Formula.make (logic op) formula_of *)     
-(* *************************** AEZ_term ************************** *)
+(* *************************** AEZ Term ************************** *)
+(** description:
+    
+    @params:            
+    @return:
+ **)
 and term_of node (expr: z_expr_desc) n =
-  Printf.printf "Term_of\n";  
+  debugging debug (fun () -> (Printf.printf "Term_of\n"));
   match expr with
   | Z_const(c) ->
      begin
@@ -152,7 +189,7 @@ and term_of node (expr: z_expr_desc) n =
                  (term_of node e1 n)
                  (term_of node e2 n)
             | _ ->
-               Printf.printf "Z_op nbr d'opérandes : %d\n" (List.length el);
+               debugging debug (fun () -> (Printf.printf "Z_op nbr d'opérandes : %d\n" (List.length el)));
                failwith "transform_aez::term_of::Two operandes expected"        
           end
        | Branchment(ite) ->
@@ -169,37 +206,25 @@ and term_of node (expr: z_expr_desc) n =
                  (term_of node e1 n)
                  (term_of node e2 n)
             | _ ->
-               Printf.printf "Op_if nbr de branches : %d\n" (List.length el);
+               debugging debug (fun () -> (Printf.printf "Op_if nbr de branches : %d\n" (List.length el)));
                failwith "transform_aez::term_of::Three expressions expected"
           end
        | Combinator(o) | Comparator(o) ->
-          failwith (Printf.sprintf "transform_aez::term_of::
-                                    [Operator=%s] : Expected an operator of type Calculator or Branchment" (Zprint.match_op o))  
+          failwith (Printf.sprintf "transform_aez::term_of::[Operator=%s] : Expected an operator of type Calculator or Branchment" (Zprint.match_op o))  
      end
     
   | Z_arrow (e1 ,e2) ->
      let e1, e2 = e1.zexpr_desc, e2.zexpr_desc in
+     let () =
+       match e1, e2 with
+       | Z_const(c), Z_op(Comparator(o), _) ->
+          debugging true (fun () -> Printf.printf "Z_arrow(_, _)\n")
+       | _ -> ()
+     in
      Term.make_ite
        (Formula.make_lit Formula.Eq [n; Term.make_int (Num.Int 0)])
        (term_of node e1 n)
-       (term_of node e2 n)
-
-  (* let ty1, ty2 = (List.hd e1.ty), (List.hd e2.ty) in
-      * match ty1, ty2 with
-      * | Tint, Tint
-      *   |Treal, Treal ->
-      *    let e1, e2 = e1.zexpr_desc, e2.zexpr_desc in
-      *    Term.make_ite
-      *      (Formula.make_lit Formula.Eq [n; Term.make_int (Num.Int 0)])
-      *      (term_of node e1 n)
-      *      (term_of node e2 n)
-      * | Tbool, Tbool ->
-      *    let e1, e2 = e1.zexpr_desc, e2.zexpr_desc in
-      * Term.make_ite
-      *   (Formula.make_lit Formula.Eq [n; Term.make_int (Num.Int 0)])
-      *   (term_of node e1 n)
-      *   (term_of node e2 n) *)
-        
+       (term_of node e2 n)     
      
   | Z_pre(e) ->
      let e = e.zexpr_desc in
@@ -208,19 +233,24 @@ and term_of node (expr: z_expr_desc) n =
   | _ ->
      failwith "transform_aez::term_of::Not implemented"
     
+
+(** description:
     
+    @params:            
+    @return:
+ **)
 let make_formula
       (node: z_node)
       (sym: Ident.t)
       (expr: z_expr_desc)
       (n: Term.t) =
-  Printf.printf "<Make_formula>\n";
-  Printf.printf "sym=%s\n" sym.name;
+  debugging debug (fun () -> (Printf.printf "<Make_formula>\n"));
+  debugging debug (fun () -> (Printf.printf "sym=%s\n" sym.name));
   let formula =
     match expr with
     | Z_const(c) ->
        let hsym = Iota.find sym node.symboles in
-       Printf.printf "%s = TE_const(_)\n" (Hstring.view hsym);
+       debugging debug (fun () -> (Printf.printf "%s = TE_const(_)\n" (Hstring.view hsym)));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
@@ -228,11 +258,11 @@ let make_formula
     | Z_ident(id) ->
        let hsym = Iota.find sym node.symboles in
        let hvar = Iota.find id node.symboles in
-       Printf.printf "%s = TE_ident(%s)\n" (Hstring.view hsym) (Hstring.view hvar);
+       debugging debug (fun () -> (Printf.printf "%s = TE_ident(%s)\n" (Hstring.view hsym) (Hstring.view hvar)));
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
            Term.make_app hvar [n] ]
-
+       
     | Z_op (Comparator(op), el) ->
        (* Probleme ici Hstring view doit etre remplacé par un Ident.t pour que ça marche ...*)
 
@@ -244,7 +274,7 @@ let make_formula
        in
        let expr_aux = Z_op(Comparator(Op_eq), zexpr_list) in
        let aux_n = formula_of node expr_aux n in
-       Zprint.print_expr_Zop op sym;
+       debugging debug (fun () -> (Zprint.print_expr_Zop op sym));
        
        Formula.make Formula.And
          [ Formula.make Formula.Imp [ aux_n; formula_of node expr n ] ;
@@ -254,7 +284,7 @@ let make_formula
              | Combinator(op)
             | Branchment(op)), el) ->
        let hsym = Iota.find sym node.symboles in
-       Zprint.print_expr_Zop op sym;
+       debugging debug (fun () -> (Zprint.print_expr_Zop op sym));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
@@ -262,35 +292,35 @@ let make_formula
        
     | Z_arrow(_, _) ->
        let hsym = Iota.find sym node.symboles in
-       Printf.printf "%s = TE_arrow(_, _)\n" sym.name;
+       debugging debug (fun () -> (Printf.printf "%s = TE_arrow(_, _)\n" sym.name));
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
            term_of node expr n ]
        
     | Z_pre(_) ->
        let hsym = Iota.find sym node.symboles in
-       Printf.printf "%s = TE_pre(_)\n" (Hstring.view hsym);
+       debugging debug (fun () -> (Printf.printf "%s = TE_pre(_)\n" (Hstring.view hsym)));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
     | Z_prim(id, el) ->
        let hsym = Iota.find sym node.symboles in
-       Printf.printf "%s = TE_prim(%s, _)\n" (Hstring.view hsym) id.name;
+       debugging debug (fun () -> (Printf.printf "%s = TE_prim(%s, _)\n" (Hstring.view hsym) id.name));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
     | Z_tuple(_) ->
        let hsym = Iota.find sym node.symboles in
-       Printf.printf "%s = TE_tuple(_)\n" (Hstring.view hsym);
+       debugging debug (fun () -> (Printf.printf "%s = TE_tuple(_)\n" (Hstring.view hsym)));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
     | Z_app(id, _) ->
        let hsym = Iota.find sym node.symboles in
-       Printf.printf "%s = TE_app(%s, _)\n" (Hstring.view hsym) id.name;
+       debugging debug (fun () -> (Printf.printf "%s = TE_app(%s, _)\n" (Hstring.view hsym) id.name));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
@@ -302,38 +332,81 @@ let make_formula
    *     (Pervasives.output_substring Pervasives.stdout)
    *     (fun () -> Pervasives.flush Pervasives.stdout)
    * in *)
-  Smt.Formula.print Format.std_formatter formula;
+  debugging true (fun () -> (Smt.Formula.print Format.std_formatter formula));
+  print_newline();
   print_newline();
   formula
   
   
-(* Eventuellement faire cette transformation 
- avant en créant un asttyped_aez pour ensuite parcourir une seul listes. *)
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let create_couple_var_ty
       (node: z_node)
       (var:Ident.t)
       (ty: Asttypes.base_ty)
   =
-  Printf.printf "    <Create_couple_var_ty>\n";
+  debugging debug (fun () -> (Printf.printf "    <Create_couple_var_ty>\n"));
   (var, ty)
   
 
-(*  *)
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let build_formula
       (node: z_node)
       (patt_ty: Ident.t * Asttypes.base_ty)
       (expr: z_expr) =
-  Printf.printf "    <Build_formula>\n";
+  debugging debug (fun () -> (Printf.printf "    <Build_formula>\n"));
   let var_symbol = fst patt_ty in
   (fun (n: Term.t) -> make_formula node var_symbol expr.zexpr_desc n)
 
-(* *   * *)
+
+  
+(** description:
+    
+    @params:            
+    @return:
+ **)
+let generate_fresh_var node =
+  let (id: Ident.t) = 
+    {
+      id=(!i);
+      name=(Printf.sprintf "aux%d" !i);
+      kind=Ident.Stream;
+    }
+  in
+  declare_symbol node id
+    [Type.type_int]
+    Type.type_bool;
+  let fresh_var = id, Asttypes.Tbool in
+
+  let (fresh_expr:z_expr) =
+    {                   
+      zexpr_desc=Z_ident(id);
+      zexpr_type=[Asttypes.Tbool];
+    }
+  in
+  id, fresh_var, fresh_expr
+
+
+
+  
+(** description:
+    
+    @params:            
+    @return:
+   **)
 let normalize
       (node: z_node)
       (patts: (Ident.t * Asttypes.base_ty) list)
       (exprs: z_expr list) =
-  Printf.printf "    <Normalize>\n";
-  let rec aux acc1 acc2
+  debugging debug (fun () -> (Printf.printf "    <Normalize>\n"));
+  let rec fun_aux acc1 acc2
             (l1: (Ident.t * Asttypes.base_ty) list)
             (l2: z_expr list ) =
     match l1, l2 with
@@ -347,72 +420,83 @@ let normalize
                 | Op_lt | Op_le
                 | Op_not| Op_and
                 | Op_or | Op_impl ->
-                 let (id: Ident.t) = 
-                   {
-                     id=(!i);
-                     name=(Printf.sprintf "aux%d" !i);
-                     kind=Ident.Stream;
-                   }
-                 in
-                 declare_symbol node id
-                   [Type.type_int]
-                   Type.type_bool;
-                 let fresh_var = id, Asttypes.Tbool
-                 in
+                 let id,fresh_var,fresh_expr = generate_fresh_var node in
                  (* S'il y a moyen de récupérer la valeur finale à
                     la fin du parsing alors initialiser i 
                     avec cette valeur + 1 *)
-
-                 let (fresh_expr:z_expr) =
-                   {                   
-                     zexpr_desc=Z_ident(id);
-                     zexpr_type=[Asttypes.Tbool];
-                   }
-                 in
-                 (* Condenser le code du haut dans une fonction
-                  * de cette configuration:
-                  * let id, fresh_var, expr = generate_fresh_var *)
                  incr i;
-                 aux (acc1@[a]@[fresh_var])
+                 fun_aux (acc1@[a]@[fresh_var])
                    (acc2@[fresh_expr]@[b])
                    tla tlb
-              | _ -> aux (acc1@[a]) (acc2@[b]) tla tlb
+              | _ -> fun_aux (acc1@[a]) (acc2@[b]) tla tlb
             end
-         (* | Z_arrow(e1, e2) ->
-          *    begin
-          *      let ty1, ty2 = (List.hd e1.ty), (List.hd e2.ty) in
-          *      match ty1, ty2 with
-          *      | Tbool, Tbool ->
-          *         let (id: Ident.t) = 
-          *           {
-          *             id=(!i);
-          *             name=(Printf.sprintf "aux%d" !i);
-          *             kind=Ident.Stream;
-          *           }
-          *         in
-          *         declare_symbol node id
-          *           [Type.type_int]
-          *           Type.type_bool;
-          *         let fresh_var = id, Asttypes.Tbool in
-          *         aux (acc1@[a]) (acc2@[b]) (::tla) (tlb)
-          *         
-          *      | _, _ -> aux (acc1@[a]) (acc2@[b]) tla tlb
-          *    end *)
 
-         | _ -> aux (acc1@[a]) (acc2@[b]) tla tlb
+         | Z_arrow(e1, e2) ->
+            begin
+              let e1' ,e2' =
+                e1.zexpr_desc,e2.zexpr_desc in
+              match e1', e2' with
+              | Z_op(Comparator(_), _),
+                Z_op(Comparator(_), _)
+                | Z_op(Combinator(_), _),
+                  Z_op(Combinator(_), _)
+                | Z_op(Comparator(_), _),
+                  Z_op(Combinator(_), _)
+                | Z_op(Combinator(_), _),
+                  Z_op(Comparator(_), _) ->
+                 let id1,fresh_var1,fresh_expr1 =
+                   generate_fresh_var node in
+                 let id2,fresh_var2,fresh_expr2 =
+                   generate_fresh_var node in
+                 let new_arrow =
+                   {zexpr_desc=Z_arrow(fresh_expr1, fresh_expr2);
+                    zexpr_type=b.zexpr_type;} in
+                 fun_aux (acc1@[a]@[fresh_var1]@[fresh_var2])
+                   (acc2@[new_arrow]@[e1]@[e2])
+                   tla tlb
+
+              | Z_const(_),
+                Z_op((Comparator(_)|Combinator(_)), _) ->
+                 let id,fresh_var,fresh_expr =
+                   generate_fresh_var node in
+                 let new_arrow =
+                   {zexpr_desc=Z_arrow(e1, fresh_expr);
+                    zexpr_type=b.zexpr_type;} in
+                 fun_aux (acc1@[a]@[fresh_var])
+                   (acc2@[new_arrow]@[fresh_expr])
+                   tla tlb
+
+              | Z_op((Comparator(_)|Combinator(_)), _),
+                Z_const(_) ->
+                 let id,fresh_var,fresh_expr =
+                   generate_fresh_var node in
+                 let new_arrow =
+                   {zexpr_desc=Z_arrow(fresh_expr, e2);
+                    zexpr_type=b.zexpr_type;} in
+                 fun_aux (acc1@[a]@[fresh_var])
+                   (acc2@[new_arrow]@[fresh_expr])
+                   tla tlb
+                 
+              | _, _ -> fun_aux (acc1@[a]) (acc2@[b]) tla tlb
+            end
+         | _ -> fun_aux (acc1@[a]) (acc2@[b]) tla tlb
        end
     | ([], []) -> (acc1, acc2)
     | _ ->
        failwith "transform_aez::normalize::Invalid_argument"
   in
-  aux [] [] patts exprs
+  fun_aux [] [] patts exprs
 
 
 (* Cette fonction créée la liste des formules pour construire
  le raisonnement kind par la suite. *)
-(* List.map2 (fun x y -> ()) [] [] *) (* Unit debug expression *)
+(** Equs_aez:
+    
+    @params:            
+    @return:
+ **)
 let equs_aez (node:z_node) (equs: z_equation) =
-  Printf.printf "\n<Equs_aez>\n";
+  debugging debug (fun () -> (Printf.printf "\n<Equs_aez>\n"));
   let vars = equs.zeq_patt.tpatt_desc in
   let tys = equs.zeq_patt.tpatt_type in
   let patts = List.map2 (create_couple_var_ty node) vars tys in
@@ -428,31 +512,29 @@ let equs_aez (node:z_node) (equs: z_equation) =
       patts
       exprs
   in
+  (* Puis la construction des formules *)
   List.map2 (build_formula node)
     patterns
     expressions
 
-(* Note : equs = liste des equations.
-   chaque equations est de la forme:                     
-   (v, ..., vn) = expr, ..., exprn
-   Le but est de transformer chaque formule par :
-   v1 = expr1;
-   ...
-   vn = exprn;
-   Donc equs_aez retourne la liste de toutes les égalités
-   vx = ex, pour une seule instruction d'équations. 
-   à la fin on peut simplement flatten cette liste.
-   (cf article 18pages source à vérifier)
-   De plus chaque vars telque x = (x0, x1 .. xn) 
-   est appelé un "stream".
-
- *)
-
+  
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let build_zexpr (ze: z_expr_desc) (te: TE.t_expr) =
   {zexpr_desc=ze;
    zexpr_type=te.texpr_type;}    
 
 
+
+  
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let rec propagate_convert (te: TE.t_expr) =
   match te.texpr_desc with
   | TE.TE_const(c) -> Z_const(c)
@@ -521,19 +603,33 @@ let rec propagate_convert (te: TE.t_expr) =
    De plus elle convertie tout les opérateur en catégories:
    Calculateur|Comparateur|Combinateur|Branchement.          
  *)
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let convert
       (node: z_node)
       (eq: TE.t_equation)
     : z_equation
   =
-  Printf.printf "<Convert>\n";
+  debugging debug (fun () -> (Printf.printf "<Convert>\n"));
   { zeq_patt=eq.teq_patt;
     zeq_expr={ zexpr_desc=propagate_convert eq.teq_expr;
                zexpr_type=eq.teq_expr.texpr_type }; }
-  
+
+
+
+
+
+(** description:
+    
+    @params:            
+    @return:
+ **)
 let ast_to_astaez (tnode : Typed_ast.t_node) =
-  Printf.printf "    <Ast_to_astaez>: ";
-  Printf.printf "Node=%s\n\n" tnode.tn_name.name;
+  debugging debug (fun () -> (Printf.printf "    <Ast_to_astaez>: "));
+  debugging debug (fun () -> (Printf.printf "Node=%s\n\n" tnode.tn_name.name));
   let (node: z_node) =
     { node_name = tnode.tn_name;
       node_input = [];
@@ -559,12 +655,12 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   (* PARTIALLY DONE *)
   let equs = 
     List.flatten (List.map (equs_aez node) zequs) in
-
-  Printf.printf "    Liste des elements de Iota:\n";
-  Iota.iter
-    (fun k e -> Printf.printf "      --> %s , %s\n" (k.name)
-                  (Hstring.view e))
-    node.symboles;
+  
+  debugging debug (fun () -> (Printf.printf "    Liste des elements de Iota:\n"));
+  debugging debug (fun () -> (Iota.iter
+           (fun k e -> Printf.printf "      --> %s , %s\n" (k.name)
+                         (Hstring.view e))
+           node.symboles));
   
   { node with
     node_input = input;
@@ -574,8 +670,7 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   }
 
   
-(* ********************************************************************** *)
-(** aezfify: Crée un nouvel arbre de syntaxe
+(** Aezfify: Crée un nouvel arbre de syntaxe
     après une éventuelle normalisation.
     
     @param:
@@ -584,15 +679,10 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
              attendu par le module Aez.
  **)
 let aezdify (ast_node: TE.t_node list) =
-  Printf.printf "<Aezdify> begin\n";
+  debugging debug (fun () -> (Printf.printf "<Aezdify> begin\n"));
   let laez = List.map ast_to_astaez ast_node in
-  Printf.printf "<Aezdify> end\n";
+  debugging debug (fun () -> (Printf.printf "<Aezdify> end\n"));
   laez
-
-
-
-
-
 
 
     (* TODO LIST :
