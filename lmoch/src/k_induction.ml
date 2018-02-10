@@ -124,7 +124,7 @@ let check (node_list: z_node list) (k: int) =
       let n_plus_one =
         Term.make_arith Term.Plus n (Term.make_int (Num.Int 1)) in
       let ind =
-        Printf.printf "Assuming: Kind case conditions\n"; 
+        Printf.printf "Assuming: k-ind case conditions\n"; 
         begin
           try
             IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n])
@@ -155,7 +155,7 @@ let check (node_list: z_node list) (k: int) =
           with
           | e -> Printf.printf "Raise->Check:Ind\n"
         end;
-        Printf.printf"Entailing: Kind case conditions\n";
+        Printf.printf"Entailing: k-ind case conditions\n";
         IND_solver.entails ~id:0 (p_incr n_plus_one outs node.symboles)
       in
       if ind then (raise TRUE_PROPERTY)
