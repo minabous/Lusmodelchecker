@@ -14,13 +14,15 @@ let norm_only = ref false
 let lucy_printer = ref false
 let ocaml_printer = ref true
 let verbose = ref false
-
+let induction = ref 2
+  
 let spec =
   ["-parse-only", Arg.Set parse_only, "  stops after parsing";
    "-type-only", Arg.Set type_only, "  stops after typing";
    "-norm-only", Arg.Set norm_only, "  stops after normalization";
-   "-verbose", Arg.Set verbose, "print intermediate transformations";
-   "-v", Arg.Set verbose, "print intermediate transformations";
+   "-verbose", Arg.Set verbose, "  print intermediate transformations";
+   "-v", Arg.Set verbose, "  print intermediate transformations";
+   "-ind", Arg.Set_int induction, "  manualy set the level on induction";
   ]
 
 let file, main_node =
@@ -42,7 +44,7 @@ let file, main_node =
     | 2 -> set_main s
     | _ -> raise (Arg.Bad "Too many arguments")
   in
-  Arg.parse spec set usage;
+  Arg.parse (Arg.align spec) set usage;
   (match !file with Some f -> f | None -> Arg.usage spec usage; exit 1),
   (match !main with Some n -> n | None -> Arg.usage spec usage; exit 1)
 
@@ -71,7 +73,7 @@ let () =
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
     let ftz = Transform_aez.aezdify ft in
-    K_induction.check ftz 2;
+    K_induction.check ftz !induction;
     (* XXX TODO XXX *)
     (* Format.printf "Don't know@."; *)
     exit 0

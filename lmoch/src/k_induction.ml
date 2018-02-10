@@ -45,13 +45,13 @@ let p_incr (n: Term.t) (outs: z_var list)  (symboles: Hstring.t Iota.t) =
           (fun out_i ->
             let sym_i = (Iota.find (fst out_i) symboles) in
             Formula.make_lit Formula.Eq [Term.make_app sym_i [n] ; Term.t_true])
-       outs) 
+          outs) 
 
 
 (* *************************************************************** *)
 (* Cas de base *)
 let assumes goal formul_list k =
-  Printf.printf "Assuming: Base case conditions\n" ; 
+  Printf.printf "Assuming: Base case conditions\n"; 
   for i = 0 to k - 1 do
     try
       BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list)
@@ -124,6 +124,7 @@ let check (node_list: z_node list) (k: int) =
       let n_plus_one =
         Term.make_arith Term.Plus n (Term.make_int (Num.Int 1)) in
       let ind =
+        Printf.printf "Assuming: Kind case conditions\n"; 
         begin
           try
             IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n])
@@ -154,28 +155,11 @@ let check (node_list: z_node list) (k: int) =
           with
           | e -> Printf.printf "Raise->Check:Ind\n"
         end;
+        Printf.printf"Entailing: Kind case conditions\n";
         IND_solver.entails ~id:0 (p_incr n_plus_one outs node.symboles)
       in
       if ind then (raise TRUE_PROPERTY)
       else (raise UNKNOWN_PROPERTY)
-
-        (* for i = 0 to k do 
-         *   let kprim = Term.make_arith Term.Plus n (Term.make_int(Num.Int i)) in
-         *   let delta_i = delta kprim formul_list in
-         *   let ok_i = p_incr_i kprim variable  in
-         *   (\* ∆(n) , ∆(n+1) ...P(n),P(n+1)...P(n+k)|= P(n+k+1)*\) 
-         *   IND_solver.assume ~id:0 (delta_i);
-         *   IND_solver.check ();
-         *   IND_solver.assume  ~id:0 ok_i;
-         *   if (IND_solver.entails ~id:0 ok_i)
-         *   then (raise FALSE_PROPERTY);
-         *   
-         *   if (i < k)
-         *   then IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int   (Num.Int 0);kprim] );
-         *   
-         * done;
-         * raise TRUE_PROPERTY *)
-
   with
   | TRUE_PROPERTY -> Printf.printf "TRUE PROPERTY\n"	
   | FALSE_PROPERTY  -> Printf.printf "FALSE PROPERTY\n"
