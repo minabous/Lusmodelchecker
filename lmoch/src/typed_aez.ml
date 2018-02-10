@@ -36,7 +36,7 @@ type z_equation =
    
 
 type z_node =
-  { node_name: Ident.t;
+  { z_name: Ident.t;
     node_input: (Ident.t * Asttypes.base_ty) list;
     node_output: (Ident.t * Asttypes.base_ty) list;
     node_vlocal: (Ident.t * Asttypes.base_ty) list;

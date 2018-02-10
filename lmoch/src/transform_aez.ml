@@ -28,7 +28,7 @@ let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
   let x = Hstring.make v.name in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add v x node.symboles;
-  debugging debug (fun () -> (Printf.printf "(%s, %s)\n" v.name (Hstring.view x)))
+  debugging false (fun () -> (Printf.printf "(%s, %s)\n" v.name (Hstring.view x)))
 
 
 (** Fonction qui déclare un symbole Hstring
@@ -39,7 +39,7 @@ let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
 let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
   let x = Hstring.make s in
   Symbol.declare x t_in t_out;
-  debugging debug (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
+  debugging false (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
   x
 (******************************************************************************)
 (** Var_aez:
@@ -144,7 +144,7 @@ let rec formula_of
                failwith "transform_aez::formula_of::Operator expression has to be bool"
           end
      end
-    
+     
   | _ ->
      failwith "transform_aez::formula_of::Not Implemeted"
     
@@ -215,12 +215,6 @@ and term_of node (expr: z_expr_desc) n =
     
   | Z_arrow (e1 ,e2) ->
      let e1, e2 = e1.zexpr_desc, e2.zexpr_desc in
-     let () =
-       match e1, e2 with
-       | Z_const(c), Z_op(Comparator(o), _) ->
-          debugging true (fun () -> Printf.printf "Z_arrow(_, _)\n")
-       | _ -> ()
-     in
      Term.make_ite
        (Formula.make_lit Formula.Eq [n; Term.make_int (Num.Int 0)])
        (term_of node e1 n)
@@ -232,7 +226,10 @@ and term_of node (expr: z_expr_desc) n =
      
   | _ ->
      failwith "transform_aez::term_of::Not implemented"
-    
+
+
+
+let num = ref 1
 
 (** description:
     
@@ -263,9 +260,8 @@ let make_formula
          [ Term.make_app hsym [n];
            Term.make_app hvar [n] ]
        
-    | Z_op (Comparator(op), el) ->
-       (* Probleme ici Hstring view doit etre remplacé par un Ident.t pour que ça marche ...*)
-
+    | Z_op ((Comparator(op)
+            | Combinator(op)), el) ->
        let zexpr_list =
          [ { zexpr_desc=Z_ident(sym);
              zexpr_type=[Tbool];};
@@ -281,8 +277,7 @@ let make_formula
            Formula.make Formula.Imp [ formula_of node expr n; aux_n ] ]
        
     | Z_op ((Calculator(op)
-             | Combinator(op)
-            | Branchment(op)), el) ->
+             | Branchment(op)), el) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Zprint.print_expr_Zop op sym));
 
@@ -293,10 +288,11 @@ let make_formula
     | Z_arrow(_, _) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_arrow(_, _)\n" sym.name));
+       (* Ici rien ne change ex000 *)
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
            term_of node expr n ]
-       
+                     
     | Z_pre(_) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_pre(_)\n" (Hstring.view hsym)));
@@ -332,7 +328,9 @@ let make_formula
    *     (Pervasives.output_substring Pervasives.stdout)
    *     (fun () -> Pervasives.flush Pervasives.stdout)
    * in *)
-  debugging true (fun () -> (Smt.Formula.print Format.std_formatter formula));
+  debugging debug (fun () ->  Printf.printf "(%d)  " !num;
+                             incr num;
+                             (Smt.Formula.print Format.std_formatter formula));
   print_newline();
   print_newline();
   formula
@@ -420,6 +418,7 @@ let normalize
                 | Op_lt | Op_le
                 | Op_not| Op_and
                 | Op_or | Op_impl ->
+                 debugging debug (fun () -> Printf.printf "    Done!\n");
                  let id,fresh_var,fresh_expr = generate_fresh_var node in
                  (* S'il y a moyen de récupérer la valeur finale à
                     la fin du parsing alors initialiser i 
@@ -444,6 +443,7 @@ let normalize
                   Z_op(Combinator(_), _)
                 | Z_op(Combinator(_), _),
                   Z_op(Comparator(_), _) ->
+                 debugging debug (fun () -> Printf.printf "    Done!\n");
                  let id1,fresh_var1,fresh_expr1 =
                    generate_fresh_var node in
                  let id2,fresh_var2,fresh_expr2 =
@@ -457,24 +457,26 @@ let normalize
 
               | Z_const(_),
                 Z_op((Comparator(_)|Combinator(_)), _) ->
+                 debugging debug (fun () -> Printf.printf "    Done!\n");
                  let id,fresh_var,fresh_expr =
                    generate_fresh_var node in
                  let new_arrow =
                    {zexpr_desc=Z_arrow(e1, fresh_expr);
                     zexpr_type=b.zexpr_type;} in
                  fun_aux (acc1@[a]@[fresh_var])
-                   (acc2@[new_arrow]@[fresh_expr])
+                   (acc2@[new_arrow]@[e2]) (* <-- ex000 Ici j'avais mis b(=Z_arrow) a la place de e2 *)
                    tla tlb
 
               | Z_op((Comparator(_)|Combinator(_)), _),
                 Z_const(_) ->
+                 debugging debug (fun () -> Printf.printf "    Done!\n");
                  let id,fresh_var,fresh_expr =
                    generate_fresh_var node in
                  let new_arrow =
                    {zexpr_desc=Z_arrow(fresh_expr, e2);
                     zexpr_type=b.zexpr_type;} in
                  fun_aux (acc1@[a]@[fresh_var])
-                   (acc2@[new_arrow]@[fresh_expr])
+                   (acc2@[new_arrow]@[e1]) (* <-- ex000 Ici j'avais mis b(=Z_arrow) a la place de e1 *)
                    tla tlb
                  
               | _, _ -> fun_aux (acc1@[a]) (acc2@[b]) tla tlb
@@ -536,6 +538,7 @@ let build_zexpr (ze: z_expr_desc) (te: TE.t_expr) =
     @return:
  **)
 let rec propagate_convert (te: TE.t_expr) =
+  debugging debug (fun () -> Printf.printf "    Propagate_convert\n");
   match te.texpr_desc with
   | TE.TE_const(c) -> Z_const(c)
   | TE.TE_ident(id) -> Z_ident(id)
@@ -631,7 +634,7 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   debugging debug (fun () -> (Printf.printf "    <Ast_to_astaez>: "));
   debugging debug (fun () -> (Printf.printf "Node=%s\n\n" tnode.tn_name.name));
   let (node: z_node) =
-    { node_name = tnode.tn_name;
+    { z_name = tnode.tn_name;
       node_input = [];
       node_output = [];
       node_vlocal = [];
