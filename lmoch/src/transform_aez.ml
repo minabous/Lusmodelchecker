@@ -7,7 +7,7 @@ open Asttypes
 module TE = Typed_ast
 
 let i = ref 0
-let debug = false
+let debug = true
 
 (** Fonction de debugging. Si b = true
     alors la fonction f affiche son résultat.
@@ -387,9 +387,10 @@ let generate_fresh_var node =
     {                   
       zexpr_desc=Z_ident(id);
       zexpr_type=[Asttypes.Tbool];
-    }
+    }    
   in
-  id, fresh_var, fresh_expr
+  incr i;
+  (id, fresh_var, fresh_expr)
 
 
 
@@ -423,13 +424,56 @@ let normalize
                  (* S'il y a moyen de récupérer la valeur finale à
                     la fin du parsing alors initialiser i 
                     avec cette valeur + 1 *)
-                 incr i;
                  fun_aux (acc1@[a]@[fresh_var])
                    (acc2@[fresh_expr]@[b])
                    tla tlb
+                 
               | _ -> fun_aux (acc1@[a]) (acc2@[b]) tla tlb
             end
-
+           
+         | Z_op(Branchment(o), el) ->
+            begin
+              debugging debug (fun () -> Printf.printf "    Done!\n");
+              match b.zexpr_type with
+              | [Tbool] ->
+                 begin
+                   let [f;e1;e2] = el in
+                   match e1.zexpr_desc, e2.zexpr_desc with
+                   | Z_const(_), Z_op(op, _) ->
+                      let id,fresh_var,fresh_expr =
+                        generate_fresh_var node in
+                      let new_if =
+                        {zexpr_desc=Z_op(Branchment(Op_if), [f;e1;fresh_expr]);
+                         zexpr_type=b.zexpr_type;} in
+                      fun_aux (acc1@[a]@[fresh_var])
+                        (acc2@[new_if]@[e1])
+                        tla tlb
+                   | Z_op(op, _),  Z_const(_) ->
+                      let id,fresh_var,fresh_expr =
+                        generate_fresh_var node in
+                      let new_if =
+                        {zexpr_desc=Z_op(Branchment(Op_if), [f;fresh_expr;e2]);
+                         zexpr_type=b.zexpr_type;} in
+                      fun_aux (acc1@[a]@[fresh_var])
+                        (acc2@[new_if]@[e1])
+                        tla tlb
+                      
+                   | Z_op(_), Z_op(_) ->
+                      let id1,fresh_var1,fresh_expr1 =
+                        generate_fresh_var node in
+                      let id2,fresh_var2,fresh_expr2 =
+                        generate_fresh_var node in
+                      let new_if =
+                        {zexpr_desc=Z_op(Branchment(Op_if), [f;fresh_expr1;fresh_expr2]);
+                         zexpr_type=b.zexpr_type;} in
+                      fun_aux (acc1@[a]@[fresh_var1]@[fresh_var2])
+                        (acc2@[new_if]@[e1]@[e2])
+                        tla tlb
+                 end                
+              | _ -> fun_aux (acc1@[a]) (acc2@[b]) tla tlb
+                   
+            end
+           
          | Z_arrow(e1, e2) ->
             begin
               let e1' ,e2' =

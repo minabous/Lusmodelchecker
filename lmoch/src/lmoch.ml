@@ -14,6 +14,7 @@ let norm_only = ref false
 let lucy_printer = ref false
 let ocaml_printer = ref true
 let verbose = ref false
+let debug = ref false
 let induction = ref 2
   
 let spec =
@@ -21,8 +22,11 @@ let spec =
    "-type-only", Arg.Set type_only, "  stops after typing";
    "-norm-only", Arg.Set norm_only, "  stops after normalization";
    "-verbose", Arg.Set verbose, "  print intermediate transformations";
+   "-debug", Arg.Set debug, "  print debug informations for aez transformations";
+   "-d", Arg.Set debug, "  print debug informations for aez transformations";
    "-v", Arg.Set verbose, "  print intermediate transformations";
    "-ind", Arg.Set_int induction, "  manualy set the level on induction";
+   
   ]
 
 let file, main_node =
