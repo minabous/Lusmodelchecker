@@ -1,0 +1,5 @@
+node check (a, b : bool) returns (sum, carry : bool);
+let
+  sum = a xor b;
+  carry = a and b;
+tel

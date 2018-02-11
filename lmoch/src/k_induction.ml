@@ -29,7 +29,7 @@ let delta_incr (n: Term.t) (formulas: (Smt.Term.t -> Aez.Smt.Formula.t) list) =
     @param:
     @return:
  **)
-let p_incr (n: Term.t) (outs: z_var list)  (symboles: Hstring.t Iota.t) =
+let p_incr (n: Term.t) (outs: z_var list) (symboles: Hstring.t Iota.t) =
   (* Donc ici on fait la séparation pour ne pas se retrouver
      avec Make And [ok(n)] 
    *)

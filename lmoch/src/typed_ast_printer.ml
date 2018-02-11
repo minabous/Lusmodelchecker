@@ -38,6 +38,7 @@ let print_op fmt op = match op with
   | Op_not -> fprintf fmt "~"
   | Op_and -> fprintf fmt "and"
   | Op_or -> fprintf fmt "or"
+  | Op_xor -> fprintf fmt "xor"
   | Op_impl -> fprintf fmt "impl"
   | Op_if -> fprintf fmt "ite"
 

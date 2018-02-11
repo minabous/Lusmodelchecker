@@ -25,6 +25,7 @@
 	"node", NODE;
 	"not", NOT;
 	"or", OR;
+        "xor", XOR;
         "pre", PRE;
 	"real", REAL;
 	"returns", RETURNS;

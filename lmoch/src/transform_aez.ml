@@ -7,6 +7,7 @@ open Asttypes
 module TE = Typed_ast
 
 let i = ref 0
+let id_sym = ref 1
 let debug = true
 
 (** Fonction de debugging. Si b = true
@@ -25,7 +26,8 @@ let debugging b f =
 
  **)
 let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
-  let x = Hstring.make v.name in
+  let id_s = (Printf.sprintf "_%d" !id_sym) in
+  let x = Hstring.make (v.name^id_s) in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add v x node.symboles;
   debugging false (fun () -> (Printf.printf "(%s, %s)\n" v.name (Hstring.view x)))
@@ -37,7 +39,8 @@ let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
 
  **)
 let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
-  let x = Hstring.make s in
+  let id_s = (Printf.sprintf "_%d" !id_sym) in
+  let x = Hstring.make (s^id_s) in
   Symbol.declare x t_in t_out;
   debugging false (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
   x
@@ -127,22 +130,47 @@ let rec formula_of
      end
   | Z_op(op, el) ->
      begin
-       match el with
-       | [e1; e2] ->
-          let e1, e2 = e1.zexpr_desc, e2.zexpr_desc in
+       match op with
+       | Comparator(o) ->
+          let [e1; e2] = el in
+          let e1', e2' = e1.zexpr_desc, e2.zexpr_desc in
+          Formula.make_lit (compare o)
+            [ term_of node e1' n;
+              term_of node e2' n ]
+          
+       | Combinator(o) ->
           begin
-            match op with
-            | Comparator(o) ->
-               Formula.make_lit (compare o)
-                 [ term_of node e1 n;
-                   term_of node e2 n ]  
-            | Combinator(o) ->
+            match o with
+            | Op_not ->
+               let [e] = el in
+               let e' = e.zexpr_desc in
                Formula.make (logic o)
-                 [ formula_of node e1 n;
-                   formula_of node e2 n ]             
+                 [ formula_of node e' n ]
+
+            (* Ajout de l'opérateur xor ------ *)
+            | Op_xor ->
+               let [e1; e2] = el in
+               let e1', e2' = e1.zexpr_desc, e2.zexpr_desc in
+               Formula.make Formula.Or
+                 [ Formula.make Formula.And
+                     [formula_of node e1' n;
+                      Formula.make Formula.Not [formula_of node e2' n] ] ;
+                   
+                   Formula.make Formula.And
+                     [Formula.make Formula.Not [formula_of node e1' n];
+                      formula_of node e2' n ] ;
+                ]
+               
             | _ ->
-               failwith "transform_aez::formula_of::Operator expression has to be bool"
+               let [e1; e2] = el in
+               let e1', e2' = e1.zexpr_desc, e2.zexpr_desc in
+               Formula.make (logic o)
+                 [ formula_of node e1' n;
+                   formula_of node e2' n ]
+               
           end
+       | _ ->
+          failwith "transform_aez::formula_of::Operator expression has to be bool"
      end
      
   | _ ->
@@ -551,7 +579,7 @@ let equs_aez (node:z_node) (equs: z_equation) =
     | Z_tuple(el) -> el
     | _ -> [equs.zeq_expr]
   in
-  (* D'abord une étape de traitement*)
+  (* D'abord une étape de traitement *)
   let patterns, expressions =
     normalize
       node
@@ -564,8 +592,9 @@ let equs_aez (node:z_node) (equs: z_equation) =
     expressions
 
   
-(** description:
-    
+(** Build_zexpr:
+    Créée une z_expr avec une z_expr_desc et une t_expr
+    Pratique
     @params:            
     @return:
  **)
@@ -576,7 +605,7 @@ let build_zexpr (ze: z_expr_desc) (te: TE.t_expr) =
 
 
   
-(** description:
+(** Propagate_convert:
     
     @params:            
     @return:
@@ -614,7 +643,8 @@ let rec propagate_convert (te: TE.t_expr) =
          | Op_mod -> Calculator(op), el
 
        | Op_not | Op_and
-         | Op_or | Op_impl -> Combinator(op), el
+         | Op_or | Op_xor | Op_impl ->
+          Combinator(op), el
 
        | Op_if ->
           Branchment(op), el  
@@ -646,12 +676,10 @@ let rec propagate_convert (te: TE.t_expr) =
        List.map2 build_zexpr zl el in
      Z_tuple(new_list)
      
-(* Fonction converte convertie les ge et gt en le et lt
-   De plus elle convertie tout les opérateur en catégories:
-   Calculateur|Comparateur|Combinateur|Branchement.          
- *)
-(** description:
-    
+
+(** Convert: Fonction qui convertie les Op_ge et Op_gt en Op_le et Op_lt
+    De plus elle convertie tout les opérateurs en catégories:     
+    Calculateur|Comparateur|Combinateur|Branchement. 
     @params:            
     @return:
  **)
@@ -677,6 +705,7 @@ let convert
 let ast_to_astaez (tnode : Typed_ast.t_node) =
   debugging debug (fun () -> (Printf.printf "    <Ast_to_astaez>: "));
   debugging debug (fun () -> (Printf.printf "Node=%s\n\n" tnode.tn_name.name));
+  
   let (node: z_node) =
     { z_name = tnode.tn_name;
       node_input = [];
@@ -702,6 +731,7 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   (* PARTIALLY DONE *)
   let equs = 
     List.flatten (List.map (equs_aez node) zequs) in
+  incr id_sym;
   
   debugging debug (fun () -> (Printf.printf "    Liste des elements de Iota:\n"));
   debugging debug (fun () -> (Iota.iter

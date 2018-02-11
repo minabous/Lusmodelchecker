@@ -224,7 +224,7 @@ and type_expr_desc env loc = function
       let te = expected_type env e tt in
       TE_op (Op_sub_f, [te]) , tt
 
-  | PE_op ((Op_and | Op_or | Op_impl as op), [e1; e2]) ->
+  | PE_op ((Op_and | Op_xor | Op_or | Op_impl as op), [e1; e2]) ->
       let tt = [Tbool] in
       let te1 = expected_type env e1 tt in
       let te2 = expected_type env e2 tt in
@@ -296,13 +296,13 @@ and type_expr_desc env loc = function
             | Op_add | Op_sub | Op_mul | Op_div | Op_mod
             | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f
             | Op_not
-            | Op_and | Op_or | Op_impl
+            | Op_and | Op_or | Op_xor | Op_impl
             | Op_if), []) -> error loc TooFewArguments
 
   | PE_op ((Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge
             | Op_add | Op_mul | Op_div | Op_mod
             | Op_add_f | Op_mul_f | Op_div_f
-            | Op_and | Op_or | Op_impl
+            | Op_and | Op_or | Op_xor | Op_impl
             | Op_if), [ _ ]) -> error loc TooFewArguments
 
   | PE_op (Op_not, [ _; _ ]) -> error loc TooManyArguments
@@ -313,7 +313,7 @@ and type_expr_desc env loc = function
             | Op_add | Op_sub | Op_mul | Op_div | Op_mod
             | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f
             | Op_not
-            | Op_and | Op_or | Op_impl
+            | Op_and | Op_or | Op_xor | Op_impl
             | Op_if), _) -> error loc TooManyArguments
 
   | PE_app (f, el) ->
@@ -478,11 +478,11 @@ let check_main ft main =
   in
   match ty, is_prim with
   | (_, [Tbool]), false -> ()
-(*********pour les noeaus qui ont plusierus outputs  *)
+  (*********pour les noeaus qui ont plusierus outputs  *)
   |(t_in, _),false -> ()
   | (t_in, t_out), false ->
      let n = List.find (fun n -> n.tn_name.Ident.name = main) (List.rev ft) in
-      error n.tn_loc (BadMain (t_in, t_out)) 
+     error n.tn_loc (BadMain (t_in, t_out)) 
   | _ -> errors dummy_loc "The main node cannot be a primitive function"
 
 let type_file f main =

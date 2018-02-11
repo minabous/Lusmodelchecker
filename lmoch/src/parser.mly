@@ -37,6 +37,7 @@
 %token NODE
 %token NOT
 %token OR
+%token XOR
 %token PLUS
 %token PRE
 %token RETURNS
@@ -184,6 +185,8 @@ expr:
     { mk_expr (PE_op (Op_and, [$1; $3])) }
 | expr OR expr
     { mk_expr (PE_op (Op_or, [$1; $3])) }
+| expr XOR expr
+    { mk_expr (PE_op (Op_xor, [$1; $3])) }
 | expr IMPL expr
     { mk_expr (PE_op (Op_impl, [$1; $3])) }
 | expr ARROW expr

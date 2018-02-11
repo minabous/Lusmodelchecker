@@ -67,9 +67,9 @@ let () =
     if !parse_only then exit 0;
     let ft = Typing.type_file f main_node in
     if !verbose then begin
-      Format.printf "/**************************************/@.";
-      Format.printf "/*            Typed ast               */@.";
-      Format.printf "/**************************************/@.";
+      Format.printf " /***************************************\@.";
+      Format.printf "|               Typed ast                 |@.";
+      Format.printf " \***************************************/@.";
       Typed_ast_printer.print_node_list_std ft;
       (* Printf.printf "In the mood\n"; *)
       end;
@@ -77,7 +77,7 @@ let () =
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
     let ftz = Transform_aez.aezdify ft in
-    K_induction.check ftz !induction;
+    K_induction.check ftz (!induction + 1);
     (* XXX TODO XXX *)
     (* Format.printf "Don't know@."; *)
     exit 0
