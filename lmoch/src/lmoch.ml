@@ -5,6 +5,7 @@ open Lexing
 open Lexer
 open Parser
 open Parse_ast
+open Typed_aez
 
 let usage = "usage: "^Sys.argv.(0)^" [options] file.lus <main>"
 
@@ -58,6 +59,21 @@ let report_loc (b,e) =
   let lc = e.pos_cnum - b.pos_bol + 1 in
   eprintf "File \"%s\", line %d, characters %d-%d:\n" file l fc lc
 
+(****fonction pour tester le type de sortie********)
+
+let check_type  (outs: z_var list ) =
+match outs with    
+  | [] -> raise (Invalid_argument "outs ")
+  | [out] -> (snd out) = Asttypes.Tbool;
+     
+  |o1::os ->List.for_all (fun o1 -> snd o1=Asttypes.Tbool) outs
+    
+
+
+
+
+
+
 let () =
   let c = open_in file in
   let lb = Lexing.from_channel c in
@@ -77,9 +93,14 @@ let () =
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
     let ftz = Transform_aez.aezdify ft in
-    K_induction.check ftz (!induction + 1);
-    (* XXX TODO XXX *)
-    (* Format.printf "Don't know@."; *)
+    let l=List.length ftz in
+    for k=0 to l-1 
+    do
+    let z_node =List.nth ftz k  in 
+    if( z_node.z_name.Ident.name = main_node )then
+     if( check_type z_node.node_output)then 
+    K_induction.check z_node (!induction + 1);
+    done;
     exit 0
   with
     | Lexical_error s ->
