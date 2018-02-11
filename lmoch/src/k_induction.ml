@@ -98,13 +98,13 @@ let entails outs symboles =
   in
   base
            
-let check (node_list: z_node list) (k: int) =
+let check (node: z_node ) (k: int) =
   (* On récupère le premier node aezdifier dans la liste des noeuds *)
   (* De manière générale: Récupèrer le nom du node checker *)
   (* A l'entrée du programme. *)
   (* Si aucun nom spécifié, tentez de checker tout les nodes comme *)
   (* avec frama-c.  *)
-  let node = List.hd node_list in
+
 
   (* On récupère les variables de sorties *)
   let outs = node.node_output in
@@ -113,7 +113,7 @@ let check (node_list: z_node list) (k: int) =
   let formules = node.node_equs in
   try
     let base =
-      Printf.printf "Bounded Model Checking\n";
+      (*Printf.printf "Bounded Model Checking\n";*)
       assumes delta_incr formules k;
       entails outs node.symboles
     in
