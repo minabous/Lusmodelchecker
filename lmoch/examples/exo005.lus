@@ -1,0 +1,20 @@
+node Mux() returns (ok:int);
+let
+ok= (4+1);
+tel
+
+
+node half(tic:int) returns (ok:bool);
+let
+ok= (4+1)=6666;
+tel
+
+
+node check (tic: bool) returns (ok: bool);
+var cpt : int;
+let
+  cpt = (0 -> pre cpt) + if tic then 1 else 0;
+  ok = true -> (pre cpt) <= cpt;
+tel
+
+
