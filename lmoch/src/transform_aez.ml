@@ -30,7 +30,7 @@ let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
   let x = Hstring.make (v.name^id_s) in
   Symbol.declare x t_in t_out;
   node.symboles <- Iota.add v x node.symboles;
-  debugging false (fun () -> (Printf.printf "(%s, %s)\n" v.name (Hstring.view x)))
+  debugging debug (fun () -> (Printf.printf "(%s, %s)\n" v.name (Hstring.view x)))
 
 
 (** Fonction qui déclare un symbole Hstring
@@ -42,7 +42,7 @@ let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
   let id_s = (Printf.sprintf "_%d" !id_sym) in
   let x = Hstring.make (s^id_s) in
   Symbol.declare x t_in t_out;
-  debugging false (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
+  debugging debug (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
   x
 (******************************************************************************)
 (** Var_aez:
@@ -308,7 +308,7 @@ let make_formula
              | Branchment(op)), el) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Zprint.print_expr_Zop op sym));
-
+       
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
            term_of node expr n]
@@ -703,8 +703,8 @@ let convert
     @return:
  **)
 let ast_to_astaez (tnode : Typed_ast.t_node) =
-  debugging debug (fun () -> (Printf.printf "    <Ast_to_astaez>: "));
-  debugging debug (fun () -> (Printf.printf "Node=%s\n\n" tnode.tn_name.name));
+  debugging debug (fun () -> (Printf.printf "\n    <Ast_to_astaez>: "));
+  debugging debug (fun () -> (Printf.printf "Node=%s\n" tnode.tn_name.name));
   
   let (node: z_node) =
     { z_name = tnode.tn_name;

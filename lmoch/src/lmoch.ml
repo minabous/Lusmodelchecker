@@ -16,7 +16,7 @@ let lucy_printer = ref false
 let ocaml_printer = ref true
 let verbose = ref false
 let debug = ref false
-let induction = ref 2
+let induction = ref 1
   
 let spec =
   ["-parse-only", Arg.Set parse_only, "  stops after parsing";
@@ -83,9 +83,9 @@ let () =
     if !parse_only then exit 0;
     let ft = Typing.type_file f main_node in
     if !verbose then begin
-      Format.printf " /***************************************\@.";
+      Format.printf " ***************************************//\@.";
       Format.printf "|               Typed ast                 |@.";
-      Format.printf " \***************************************/@.";
+      Format.printf " ***************************************/@.";
       Typed_ast_printer.print_node_list_std ft;
       (* Printf.printf "In the mood\n"; *)
       end;
@@ -93,13 +93,20 @@ let () =
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
     let ftz = Transform_aez.aezdify ft in
-    let l=List.length ftz in
+    let l = List.length ftz in
+    Printf.printf "Nombre de Nodes dans la liste : %d\n" l;
     for k=0 to l-1 
     do
-    let z_node =List.nth ftz k  in 
-    if( z_node.z_name.Ident.name = main_node )then
-     if( check_type z_node.node_output)then 
-    K_induction.check z_node (!induction + 1);
+    let z_node = List.nth ftz k in 
+    if z_node.z_name.Ident.name = main_node then
+      begin
+        if check_type z_node.node_output then 
+          K_induction.check z_node (!induction + 1)
+        else
+          Printf.printf "Node %s pas de type bool : continue\n" z_node.z_name.Ident.name;
+      end
+    else
+      Printf.printf "Node courant:%s != Node:demande:%s \n" z_node.z_name.Ident.name main_node
     done;
     exit 0
   with
