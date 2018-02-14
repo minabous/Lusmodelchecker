@@ -3,7 +3,8 @@ open Asttypes
 open Typed_ast
 
 module Iota = Map.Make(Ident)
-
+module Mu = Map.Make(String)
+            
 type z_var = Ident.t * base_ty
                
 type operateur =
@@ -46,3 +47,10 @@ type z_node =
   }
 
 
+
+    (* [x1;x2;x3] -> symbole hstring.t
+   *   [e1;e2;e3]
+   * 
+   * [x1=e1; x2 = e2; x3=e3;] *)
+  
+  

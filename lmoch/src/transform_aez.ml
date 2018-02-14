@@ -9,7 +9,8 @@ module TE = Typed_ast
 let i = ref 0
 let id_sym = ref 1
 let debug = true
-
+let fun_env = Mu.empty
+            
 (** Fonction de debugging. Si b = true
     alors la fonction f affiche son résultat.
     
@@ -35,8 +36,7 @@ let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
 
 (** Fonction qui déclare un symbole Hstring
     à partir d'une chaine s
-    (ws => "with string")
-
+    (ws => "with Hstring")
  **)
 let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
   let id_s = (Printf.sprintf "_%d" !id_sym) in
@@ -111,9 +111,9 @@ let compare op =
     @return:
  **)
 let rec formula_of
-          node
+          (node: z_node)
           (expr: z_expr_desc)
-          n =
+          (n: Term.t) =
   debugging debug (fun () -> (Printf.printf "Formula_of\n"));
   match expr with
   | Z_ident(id) ->
@@ -187,7 +187,10 @@ let rec formula_of
     @params:            
     @return:
  **)
-and term_of node (expr: z_expr_desc) n =
+and term_of
+(node:z_node)
+(expr: z_expr_desc)
+(n: Term.t) =
   debugging debug (fun () -> (Printf.printf "Term_of\n"));
   match expr with
   | Z_const(c) ->
@@ -202,7 +205,8 @@ and term_of node (expr: z_expr_desc) n =
        | Asttypes.Cint(i) ->  Term.make_int  (Num.Int i)
        | Asttypes.Creal(f) -> Term.make_real (Num.num_of_string (string_of_float f))
      end    
-    
+        Formula.make_lit Formula.Eq
+         [ Term.make_app hsym [n]; Term.t_true ]    
   | Z_ident(id) ->
      let var =
        Iota.find id node.symboles in
@@ -275,7 +279,7 @@ let make_formula
       (expr: z_expr_desc)
       (n: Term.t) =
   debugging debug (fun () -> (Printf.printf "<Make_formula>\n"));
-  debugging debug (fun () -> (Printf.printf "sym=%s\n" sym.name));
+  debugging debug (fun () -> (Printf.printf "pattern=%s\n" sym.name));
   let formula =
     match expr with
     | Z_const(c) ->
@@ -321,35 +325,49 @@ let make_formula
     | Z_arrow(_, _) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_arrow(_, _)\n" sym.name));
-       (* Ici rien ne change ex000 *)
+       
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
            term_of node expr n ]
        
     | Z_pre(_) ->
        let hsym = Iota.find sym node.symboles in
-       debugging debug (fun () -> (Printf.printf "%s = TE_pre(_)\n" (Hstring.view hsym)));
+       debugging debug (fun () -> (Printf.printf "%s = Z_pre(_)\n" (Hstring.view hsym)));
        
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
     | Z_prim(id, el) ->
        let hsym = Iota.find sym node.symboles in
-       debugging debug (fun () -> (Printf.printf "%s = TE_prim(%s, _)\n" (Hstring.view hsym) id.name));
+       debugging debug (fun () -> (Printf.printf "%s = Z_prim(%s, _)\n" (Hstring.view hsym) id.name));
 
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
+    | Z_app(id, el) ->
+       (* L'idée ici c'est de find id dans la map
+        des fun_symboles (Ident.t <-> (Term.t -> Formula.t )
+        Puis de déclarer un symbole : avec le nom id 
+        (ou alors le déclarer dès le début quand on voit un
+        node...mhhh) *)
+       
+       let hsym = Iota.find sym node.symboles in
+       let fsym,f = Iota.find id fun_symboles in
+       let f =
+         match f with
+         | ( t -> f) -> f
+       in
+       debugging debug (fun () -> (Printf.printf "%s = Z_app(%s, _)\n" (Hstring.view hsym) id.name));
+       
+       Formula.make Formula.And
+         [ Formula.make_lit Formula.Eq
+             [ Term.make_app hsym [n]; Term.make_app fsym [n]];
+           Formula.make_lit Formula.Eq
+             [ Term.make_app fsym [n]; f]
+         ]
     | Z_tuple(_) ->
        let hsym = Iota.find sym node.symboles in
-       debugging debug (fun () -> (Printf.printf "%s = TE_tuple(_)\n" (Hstring.view hsym)));
-       
-       Formula.make_lit Formula.Eq
-         [ Term.make_app hsym [n]; term_of node expr n ]
-       
-    | Z_app(id, _) ->
-       let hsym = Iota.find sym node.symboles in
-       debugging debug (fun () -> (Printf.printf "%s = TE_app(%s, _)\n" (Hstring.view hsym) id.name));
+       debugging debug (fun () -> (Printf.printf "%s = TE_tuple(_) ?? Supposed to be fathomed...\n" (Hstring.view hsym)));
        
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
@@ -409,23 +427,25 @@ let generate_fresh_var node =
     }
   in
   declare_symbol node id
-    [Type.type_int]
+    [ Type.type_int ]
     Type.type_bool;
   let fresh_var = id, Asttypes.Tbool in
 
-  let (fresh_expr:z_expr) =
-    {                   
+  let (fresh_expr: z_expr) =
+    {
       zexpr_desc=Z_ident(id);
       zexpr_type=[Asttypes.Tbool];
     }    
   in
   incr i;
   (id, fresh_var, fresh_expr)
-
+  
 
 
   
-(** :
+(** Normalize:Fonction qui effectue divers changement
+    dans l'arbre de syntaxe typé:
+    1 - Transforme tous les opérateurs en
     
     @params:            
     @return:
@@ -617,6 +637,7 @@ let rec propagate_convert (te: TE.t_expr) =
   match te.texpr_desc with
   | TE.TE_const(c) -> Z_const(c)
   | TE.TE_ident(id) -> Z_ident(id)
+
   | TE.TE_pre(e) ->
      let e' = (propagate_convert e) in
      let ze =
@@ -691,10 +712,10 @@ let convert
     : z_equation
   =
   debugging debug (fun () -> (Printf.printf "<Convert>\n"));
-  { zeq_patt=eq.teq_patt;
-    zeq_expr={ zexpr_desc=propagate_convert eq.teq_expr;
-               zexpr_type=eq.teq_expr.texpr_type }; }
-
+  {zeq_patt=eq.teq_patt;
+   zeq_expr={zexpr_desc=propagate_convert eq.teq_expr;
+             zexpr_type=eq.teq_expr.texpr_type};}
+                                          
 
 (** Generate_aez_node:Fonction qui génère un
     Aez Node qui contient la liste des formules pour
@@ -727,7 +748,7 @@ let generate_aez_node (tnode : Typed_ast.t_node) =
   (* Printf.printf "Liste des patterns:\n";
    * List.iter (fun (eq: Typed_ast.t_equation) ->
    *     List.iter (fun (patt: Ident.t) -> Printf.printf "%s\n" patt.name) eq.teq_patt.tpatt_desc) tnode.tn_equs; *)
-
+  
   let zequs = List.map (convert node) tnode.tn_equs in
   (* PARTIALLY DONE *)
   let equs = 
