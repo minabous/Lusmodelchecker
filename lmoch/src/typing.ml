@@ -471,7 +471,6 @@ let type_node n =
 
 
 
-
 let check_main ft main =
   let (_, ty), is_prim =
     try Delta.find main with Not_found -> error dummy_loc (UnboundNode main)

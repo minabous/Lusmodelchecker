@@ -19,7 +19,7 @@ let debug = true
  **)
 let debugging b f =
   if b then f() else ()
-      
+  
 (* ********************* UTILS *********************** *)
 (** Fonction qui déclare un symbole Hstring
     à partir d'un Ident.t 
@@ -45,7 +45,8 @@ let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
   debugging debug (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
   x
 (******************************************************************************)
-(** Var_aez:
+(** Var_aez:Fonction qui crée un couple Hstring.t, type
+    permettant de garder l'information du type de la variable.
     
     @params:            
     @return:
@@ -72,8 +73,10 @@ let var_aez (node: z_node) (input : TE.typed_var)
    afin de construire la liste des formules à prouver
  *)
 
-(** description:
-    
+(** Matching Operator:
+    Fonction qui permet de sélectionner le bon
+    opérateur pour la construction des termes.
+
     @params:            
     @return:
  **)
@@ -102,8 +105,9 @@ let compare op =
        
 
 (* *********************** AEZ FORMULA ************************** *)
-(** description:    
-    @params:            
+(** Formula_of: Fonction qui construit les formules 
+    rencontrées dans les équations.
+    @params:
     @return:
  **)
 let rec formula_of
@@ -159,7 +163,7 @@ let rec formula_of
                    Formula.make Formula.And
                      [Formula.make Formula.Not [formula_of node e1' n];
                       formula_of node e2' n ] ;
-                ]
+                 ]
                
             | _ ->
                let [e1; e2] = el in
@@ -172,12 +176,13 @@ let rec formula_of
        | _ ->
           failwith "transform_aez::formula_of::Operator expression has to be bool"
      end
-     
+    
   | _ ->
      failwith "transform_aez::formula_of::Not Implemeted"
     
 (* *************************** AEZ Term ************************** *)
-(** description:
+(** Term_of:Fonction qui construit les termes
+    rencontrés dans les équations.
     
     @params:            
     @return:
@@ -255,12 +260,12 @@ and term_of node (expr: z_expr_desc) n =
   | _ ->
      failwith "transform_aez::term_of::Not implemented"
 
-
-
 let num = ref 1
 
-(** description:
-    
+(** Make_Formula:Fonction qui crée les formules
+    représentant "pattern = expr ", c'est à dire
+    l'ensemble des formules décrivant le comportement
+    d'un noeud.
     @params:            
     @return:
  **)
@@ -276,7 +281,7 @@ let make_formula
     | Z_const(c) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_const(_)\n" (Hstring.view hsym)));
-
+       
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
@@ -289,7 +294,7 @@ let make_formula
            Term.make_app hvar [n] ]
        
     | Z_op ((Comparator(op)
-            | Combinator(op)), el) ->
+             | Combinator(op)), el) ->
        let zexpr_list =
          [ { zexpr_desc=Z_ident(sym);
              zexpr_type=[Tbool];};
@@ -320,11 +325,11 @@ let make_formula
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n];
            term_of node expr n ]
-                     
+       
     | Z_pre(_) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_pre(_)\n" (Hstring.view hsym)));
-
+       
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
@@ -338,33 +343,30 @@ let make_formula
     | Z_tuple(_) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_tuple(_)\n" (Hstring.view hsym)));
-
+       
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
     | Z_app(id, _) ->
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = TE_app(%s, _)\n" (Hstring.view hsym) id.name));
-
+       
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; term_of node expr n ]
        
     | _ -> failwith "transform_aez::make_formula::List match expressions not implemented"
   in
-  (* let fmt =
-   *   Format.make_formatter
-   *     (Pervasives.output_substring Pervasives.stdout)
-   *     (fun () -> Pervasives.flush Pervasives.stdout)
-   * in *)
   debugging debug (fun () ->  Printf.printf "(%d)  " !num;
-                             incr num;
-                             (Smt.Formula.print Format.std_formatter formula));
+                              incr num;
+                              (Smt.Formula.print Format.std_formatter formula));
   print_newline();
   print_newline();
   formula
   
   
-(** description:
+(** Create_couple_var_ty:Fonction qui 
+    "pack" les varaibles avec leur types
+    pour une utilisation future.
     
     @params:            
     @return:
@@ -423,11 +425,11 @@ let generate_fresh_var node =
 
 
   
-(** description:
+(** :
     
     @params:            
     @return:
-   **)
+ **)
 let normalize
       (node: z_node)
       (patts: (Ident.t * Asttypes.base_ty) list)
@@ -654,7 +656,7 @@ let rec propagate_convert (te: TE.t_expr) =
      let new_list =
        List.map2 build_zexpr zl el in
      Z_op(new_op, new_list)
-                  
+     
   | TE.TE_app(id, el) ->
      let zl =
        List.map propagate_convert el in
@@ -694,15 +696,14 @@ let convert
                zexpr_type=eq.teq_expr.texpr_type }; }
 
 
-
-
-
-(** description:
+(** Generate_aez_node:Fonction qui génère un
+    Aez Node qui contient la liste des formules pour
+    la vérification.
     
     @params:            
     @return:
  **)
-let ast_to_astaez (tnode : Typed_ast.t_node) =
+let generate_aez_node (tnode : Typed_ast.t_node) =
   debugging debug (fun () -> (Printf.printf "\n    <Ast_to_astaez>: "));
   debugging debug (fun () -> (Printf.printf "Node=%s\n" tnode.tn_name.name));
   
@@ -735,9 +736,9 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
   
   debugging debug (fun () -> (Printf.printf "    Liste des elements de Iota:\n"));
   debugging debug (fun () -> (Iota.iter
-           (fun k e -> Printf.printf "      --> %s , %s\n" (k.name)
-                         (Hstring.view e))
-           node.symboles));
+                                (fun k e -> Printf.printf "      --> %s , %s\n" (k.name)
+                                              (Hstring.view e))
+                                node.symboles));
   
   { node with
     node_input = input;
@@ -757,10 +758,10 @@ let ast_to_astaez (tnode : Typed_ast.t_node) =
  **)
 let aezdify (ast_node: TE.t_node list) =
   debugging debug (fun () -> (Printf.printf "<Aezdify> begin\n"));
-  let laez = List.map ast_to_astaez ast_node in
+  let laez = List.map generate_aez_node ast_node in
   debugging debug (fun () -> (Printf.printf "<Aezdify> end\n"));
   laez
-
+    
 
     (* TODO LIST :
 

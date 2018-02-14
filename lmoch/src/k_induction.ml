@@ -105,7 +105,6 @@ let check (node: z_node ) (k: int) =
   (* Si aucun nom spécifié, tentez de checker tout les nodes comme *)
   (* avec frama-c.  *)
 
-
   (* On récupère les variables de sorties *)
   let outs = node.node_output in
   
