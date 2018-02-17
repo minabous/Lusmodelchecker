@@ -9,7 +9,7 @@ let fun_symboles = Phy.empty
 let id_fresh = ref 0
 let id_node = ref (-1)
 let id_node' = ref 0
-let debug = true
+let debug = false
 let fun_env =
   {
     fun_name=[];

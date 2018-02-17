@@ -89,7 +89,7 @@ let () =
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
-    Incr_proof.check();
+    (* Incr_proof.check(); *)
     let ftz = Transform_aez.aezdify ft in
     let l = List.length ftz in
     Printf.printf "Nombre de Nodes dans la liste : %d\n" l;
@@ -97,7 +97,7 @@ let () =
       let z_node = List.nth ftz k in
       Printf.printf "--------------------\n";
       Printf.printf "Node courant: %s\n" z_node.z_name.Ident.name;
-      if z_node.z_name.Ident.name = main_node then
+      if true || (z_node.z_name.Ident.name = main_node) then
         begin
           if check_type z_node.node_output then 
             K_induction.check z_node (!induction + 1)
@@ -108,7 +108,7 @@ let () =
         Printf.printf "Node attendu : %s\n" main_node
     done;
     Printf.printf "--------------------\n";
-    Gc.print_stat stdout;
+    (* Gc.print_stat stdout; *)
     (* XXX TODO XXX *)    
     exit 0
   with
