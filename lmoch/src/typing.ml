@@ -291,7 +291,7 @@ and type_expr_desc env loc = function
 	TE_op(Op_if, [te1; te2; te3]), tt
       else
 	error loc (ExpectedType (te3.texpr_type, te2.texpr_type))
-
+      
   | PE_op ((Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge
             | Op_add | Op_sub | Op_mul | Op_div | Op_mod
             | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f
@@ -436,7 +436,7 @@ let check_causality loc inputs equs =
   end
 
 let type_node n =
-  let env = Gamma.adds n.pn_loc Vpatt Gamma.empty (n.pn_output@n.pn_local) in
+  let env = Gamma.adds (n.pn_loc) (Vpatt) (Gamma.empty) (n.pn_output@n.pn_local) in
   let env = Gamma.adds n.pn_loc Vinput env n.pn_input in
   let equs = List.map (type_equation env) n.pn_equs in
   check_outputs n.pn_loc env equs;
@@ -468,8 +468,6 @@ let type_node n =
   in
   check_causality node.tn_loc node.tn_input equs;
   node
-
-
 
 let check_main ft main =
   let (_, ty), is_prim =

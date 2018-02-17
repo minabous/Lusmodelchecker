@@ -35,7 +35,11 @@ type z_equation =
   { zeq_patt: t_patt;
     zeq_expr: z_expr; }
    
-
+type formula =
+  | Form of Smt.Formula.t
+  | Term of Smt.Term.t
+  | Nothing
+          
 type z_node =
   { z_name: Ident.t;
     node_input: (Ident.t * Asttypes.base_ty) list;
@@ -45,12 +49,35 @@ type z_node =
     node_loc: location;
     mutable symboles: Hstring.t Iota.t;
   }
-
-
-
-    (* [x1;x2;x3] -> symbole hstring.t
-   *   [e1;e2;e3]
-   * 
-   * [x1=e1; x2 = e2; x3=e3;] *)
   
+type map_fun_env =
+  {
+    mutable fun_name : Ident.t list;  
+    mutable form_arr: (formula list) array;
+  }
+
+let (<><>) a1 a2 =
+  Array.append a1 a2
   
+module M = Map.Make(Ident)
+module Phy =
+  struct
+    type t = formula list M.t
+    let empty = M.empty
+              
+    let init key env =
+      M.add key []
+      
+    let add key f env =
+      if M.mem key env then
+        let ll = (M.find key env) in
+        M.add key (ll @ [f]) env
+      else 
+        M.add key [f] env
+      
+    let find key env =      
+      try
+        M.find key env
+      with
+      | Not_found -> raise Not_found
+  end

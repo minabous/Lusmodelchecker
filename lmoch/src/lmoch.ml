@@ -93,9 +93,9 @@ let () =
     let ftz = Transform_aez.aezdify ft in
     let l = List.length ftz in
     Printf.printf "Nombre de Nodes dans la liste : %d\n" l;
-    for k=0 to l-1 
-    do
+    for k = 0 to l - 1 do
       let z_node = List.nth ftz k in
+      Printf.printf "--------------------\n";
       Printf.printf "Node courant: %s\n" z_node.z_name.Ident.name;
       if z_node.z_name.Ident.name = main_node then
         begin
@@ -107,6 +107,8 @@ let () =
       else
         Printf.printf "Node attendu : %s\n" main_node
     done;
+    Printf.printf "--------------------\n";
+    Gc.print_stat stdout;
     (* XXX TODO XXX *)    
     exit 0
   with

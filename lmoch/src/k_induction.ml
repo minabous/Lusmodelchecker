@@ -20,7 +20,8 @@ module IND_solver = Smt.Make(struct end)
 
  **)
 let delta_incr (n: Term.t) (formulas: (Smt.Term.t -> Aez.Smt.Formula.t) list) =
-  Formula.make Formula.And (List.map (fun f -> f n) formulas)
+  let eqs = (List.map (fun f -> f n) formulas) in  
+  Formula.make Formula.And eqs
   
   
 (* *************************************************************** *)
@@ -56,7 +57,7 @@ let assumes goal formul_list k =
     try
       BMC_solver.assume ~id:0 (goal (Term.make_int (Num.Int i)) formul_list)
     with
-    | Smt.Unsat il -> Printf.printf "Raise->(Assumes delta_incr 0 1):Unsat\n"
+    | Smt.Unsat il -> Printf.printf "Raise->Base:(Assumes delta_incr 0 1): Unsat\n"
     (* | e -> Printf.printf "Raise->(Assumes delta_incr 0 1):?\n" (\* Le raise tombe ici donc il faut vérifier à quelle exception on a affaire *\) *)
   done;
   begin
@@ -65,7 +66,7 @@ let assumes goal formul_list k =
     with
     | Smt.Error e ->
        begin
-         Printf.printf"Raise->Check:Base\n";
+         Printf.printf"Raise->Base:Check\n";
          match e with
          | Smt.DuplicateTypeName(hs)
            | Smt.DuplicateSymb(hs) ->
@@ -75,9 +76,9 @@ let assumes goal formul_list k =
             Printf.printf"Unknown Symbol or Type %s\n" (Hstring.view hs)
        end
     | Smt.Unsat il ->
-       Printf.printf"Raise->Check:Base:Unsat\n"
+       Printf.printf"Raise->Base:Check: Unsat\n"
     | _ ->
-       Printf.printf"Raise->Check:Base:?\n"
+       Printf.printf"Raise->Base:Check: ?\n"
   end
   
 let init n f =
@@ -94,7 +95,7 @@ let entails outs symboles =
     try
       BMC_solver.entails ~id:0 (Formula.make Formula.And (init 2 (fun i -> p_incr (Term.make_int (Num.Int i)) outs symboles)))
     with
-    | e -> Printf.printf "Raise->Assumes delta_incr 0 1\n"; true
+    | e -> Printf.printf "Raise->Base:Entails delta_incr 0 1\n"; false
   in
   base
            
@@ -102,8 +103,6 @@ let check (node: z_node ) (k: int) =
   (* On récupère le premier node aezdifier dans la liste des noeuds *)
   (* De manière générale: Récupèrer le nom du node checker *)
   (* A l'entrée du programme. *)
-  (* Si aucun nom spécifié, tentez de checker tout les nodes comme *)
-  (* avec frama-c.  *)
 
   (* On récupère les variables de sorties *)
   let outs = node.node_output in
@@ -128,54 +127,42 @@ let check (node: z_node ) (k: int) =
           try
             IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n])
           with
-          | e -> Printf.printf "Raise->Assume 0 <= n\n"
+          | e -> Printf.printf "Raise->Ind:Assume: 0 <= n\n"
         end;
         begin
           try
             IND_solver.assume ~id:0 (delta_incr n formules)
           with
-          | e -> Printf.printf "Raise->Assume delta_incr n\n"
+          | e -> Printf.printf "Raise->Ind:Assume: delta_incr n\n"
         end;
         begin
           try
             IND_solver.assume ~id:0 (delta_incr n_plus_one formules)
           with
-          | e -> Printf.printf "Raise->Assume delta_incr n+1\n"
+          | e -> Printf.printf "Raise->Ind:Assume: delta_incr n+1\n"
         end;
         begin
           try
             IND_solver.assume ~id:0 (p_incr n outs node.symboles)
           with
-          | e -> Printf.printf "Raise->Assume p_incr n\n"
+          | e -> Printf.printf "Raise->Ind:Assume: p_incr n\n"
         end;
         begin
           try
             IND_solver.check()
           with
-          | e -> Printf.printf "Raise->Check:Ind\n"
+          | e -> Printf.printf "Raise->Ind:Check: ?\n"
         end;
         Printf.printf"Entailing: k-ind case conditions\n";
-        IND_solver.entails ~id:0 (p_incr n_plus_one outs node.symboles)
+        try
+          IND_solver.entails ~id:0 (p_incr n_plus_one outs node.symboles)
+        with
+        | e -> Printf.printf "Raise->Ind:Entails p_incr n+1\n"; false
       in
       if ind then (raise TRUE_PROPERTY)
       else (raise UNKNOWN_PROPERTY)
   with
   | TRUE_PROPERTY -> Printf.printf "TRUE PROPERTY\n"	
-  | FALSE_PROPERTY  -> Printf.printf "FALSE PROPERTY\n"
+  | FALSE_PROPERTY -> Printf.printf "FALSE PROPERTY\n"
   | UNKNOWN_PROPERTY -> Printf.printf "UNKNOWN PROPERTY\n"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
