@@ -106,6 +106,8 @@ let check (node: z_node ) (k: int) =
 
   (* On récupère les variables de sorties *)
   let outs = node.node_output in
+   let ins=node.node_input in
+   let locs=node.node_vlocal in 
   
   (* On récupère la listes des lambda-fonctions générant les formules *)
   let formules = node.node_equs in
@@ -116,6 +118,9 @@ let check (node: z_node ) (k: int) =
       entails outs node.symboles
     in
     if not base then (raise FALSE_PROPERTY)
+
+
+
     else
       let n =
         Term.make_app (Transform_aez.declare_symbol_ws node "n" [] Type.type_int) [] in 
@@ -124,7 +129,7 @@ let check (node: z_node ) (k: int) =
       let ind =
         Printf.printf "Assuming: k-ind case conditions\n"; 
         begin
-          try
+          try 
             IND_solver.assume ~id:0 (Formula.make_lit Formula.Le [Term.make_int (Num.Int 0); n])
           with
           | e -> Printf.printf "Raise->Ind:Assume: 0 <= n\n"
@@ -147,6 +152,48 @@ let check (node: z_node ) (k: int) =
           with
           | e -> Printf.printf "Raise->Ind:Assume: p_incr n\n"
         end;
+        (***************optimisation ::path compression****************************)
+              begin 
+       let t_i =
+        Term.make_app (Transform_aez.declare_symbol_ws node "i" [] Type.type_int) [] in
+       let t_j =
+        Term.make_app (Transform_aez.declare_symbol_ws node "j" [] Type.type_int) [] in
+        
+        let left=Formula.make Formula.And 
+	[ 
+	  Formula.make_lit Formula.Lt [t_i ; t_j] ; 
+	  Formula.make_lit Formula.Le [t_j ; n] ]
+         in 
+         let eqs=
+            match 
+           (
+  List.map (fun ({Ident.name= varr},_) -> 
+        let var1= Transform_aez.declare_symbol_ws node "varr" [] Type.type_int in
+       
+        Formula.make_lit Formula.Neq [
+       Term.make_app (var1) [t_i] ;
+       Term.make_app (var1) [t_j]  
+                                      ] 
+           ) 
+           (locs @ ins ) )
+ 
+
+           with
+            |[]  -> Formula.f_false
+            |[eq] -> Formula.make Formula.Imp[left ;eq]
+            |eqs ->Formula.make Formula.Imp [left ; Formula.make Formula.Or eqs ]
+
+            in
+          
+       IND_solver.assume ~id:0 eqs ;
+           
+     
+
+        end ;
+
+   
+         (******************************************************************)
+         
         begin
           try
             IND_solver.check()
