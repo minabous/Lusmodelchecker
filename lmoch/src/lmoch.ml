@@ -89,7 +89,7 @@ let () =
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
-    let ftz = Transform_aez.aezdify ft in
+    let ftz = Transform_aez.aezdify ft !debug in
     let l = List.length ftz in
     Printf.printf "Nombre de Nodes dans la liste : %d\n" l;
     for k = 0 to l - 1 do
