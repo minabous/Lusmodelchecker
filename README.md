@@ -31,5 +31,6 @@ Pour les options d'usages:
   		--help  Display this list of options
 
 
-	
+Si vous avez un problème avec la lib Num d'ocaml, il se peut qu'il y ai une manipulation à effectuer, due à la récente séparation du packages Num de la bibliothèque Ocaml.
+[Lien vers le git du package Num.](https://github.com/ocaml/num)
 																		
