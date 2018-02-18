@@ -2,13 +2,19 @@
 
 
 Pour compiler le projet, si la lib n'est pas encore créer,
-se placer dans le dossier `lmoch` du projet puis taper la commande:
+se placer dans le répertoire `lmoch` du projet puis taper la commande:
      
      make
 
-Ensuite se placer dans le dossier `src` du projet et entrer la commande :
+Pour lancer le programme, se placer dans le répertoire `src` du projet et entrer la commande:
 
     ./lmoch [option] ../exemples/<fichier>.lus check
+    
+Si possible pour pouvez aussi bénéficier d'un exécutable compilé en natif dans le dossier `\_build/`.
+Pour lancer ce programme, toujours dans le répertoire `src`, entrer la commande:
+
+    ./_build/lmoch.native [option] ../exemples/<fichier>.lus check
+
 
 Pour les options d'usages:
 
