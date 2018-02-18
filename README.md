@@ -10,7 +10,7 @@ Pour lancer le programme, se placer dans le répertoire `src` du projet et entre
 
     ./lmoch [option] ../exemples/<fichier>.lus check
     
-Si possible pour pouvez aussi bénéficier d'un exécutable compilé en natif dans le dossier `\_build/`.
+Si possible pour pouvez aussi bénéficier d'un exécutable compilé en natif dans le dossier `_build/`.
 Pour lancer ce programme, toujours dans le répertoire `src`, entrer la commande:
 
     ./_build/lmoch.native [option] ../exemples/<fichier>.lus check
