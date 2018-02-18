@@ -7,4 +7,5 @@ module TE = Typed_ast
 
 
               
-let 
+let build_formula node =
+  let zexpr = node.node_equs
