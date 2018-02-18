@@ -84,12 +84,11 @@ let () =
       Format.printf "|*               Typed ast              *|@.";
       Format.printf "/****************************************/@.";
       Typed_ast_printer.print_node_list_std ft;
-      (* Printf.printf "In the mood\n"; *)
+      Format.print_flush();
       end;
     if !type_only then exit 0;
     if main_node = "" then exit 0;
     (* XXX TODO XXX *)
-    (* Incr_proof.check(); *)
     let ftz = Transform_aez.aezdify ft in
     let l = List.length ftz in
     Printf.printf "Nombre de Nodes dans la liste : %d\n" l;

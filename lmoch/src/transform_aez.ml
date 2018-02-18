@@ -7,6 +7,7 @@ module TE = Typed_ast
 
 
 (* num_formula : Sert a identifier le numéro de la formule (debug) *)
+(* divers identifiant pour différencier la déclaration des variables *)
 let num_formula = ref 1
 let id_fresh = ref 0
 let id_node = ref (-1)
@@ -14,6 +15,8 @@ let id_node' = ref 0
 let debug = false
 
 
+(* Environement où devrait être stocker les termes associers au formule de chaque noeud
+ i.e :   Formula(patt = [terme]) *)
 let fun_env =
   {
     fun_name=[];
@@ -36,7 +39,7 @@ let debugging b f =
   
 (** Fonction qui déclare un symbole Hstring
     à partir d'un Ident.t 
-    
+    @return: unit
  **)
 let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
   let id_str = (Printf.sprintf "_%d" !id_node') in
@@ -49,6 +52,7 @@ let declare_symbol (node: z_node) (v: Ident.t) t_in t_out =
 (** Fonction qui déclare un symbole Hstring.t
     à partir d'une chaine s
     (ws => "with Hstring")
+    @return: Hstring.t
  **)
 let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
   let id_str = (Printf.sprintf "_%d" !id_node') in
@@ -319,7 +323,7 @@ and term_of
 
 
 (** Make_Formula:Fonction qui crée les formules
-    représentant "pattern = expr ", c'est à dire
+    représentant "pattern = expr", c'est à dire
     l'ensemble des formules décrivant le comportement
     d'un noeud.
     
@@ -437,8 +441,7 @@ let make_formula
   debugging debug (fun () ->  Printf.printf "(%d)  " !num_formula;
                               incr num_formula;
                               (Smt.Formula.print Format.std_formatter formula));
-  print_newline();
-  print_newline();
+  debugging debug (fun () -> print_newline(); print_newline());
   formula
   
   
@@ -659,8 +662,7 @@ let normalize
  le raisonnement kind par la suite. *)
 (** Equs_aez:
     Fonction qui transforme les t_equations en z_equation
-    puis qui les convertie en "glaçons" (cf build_formula)
-    
+    puis qui les convertie en "glaçons" (cf build_formula).
     
     @params: Le z_node
              Une t_equation
@@ -690,8 +692,8 @@ let equs_aez (node:z_node) (equs: z_equation) =
 
   
 (** Build_zexpr:
-    Créée une z_expr avec une z_expr_desc et une t_expr
-    Pratique
+    Créée une z_expr avec une z_expr_desc et une t_expr.
+
     @params:            
     @return:
  **)
@@ -701,6 +703,9 @@ let build_zexpr (ze: z_expr_desc) (te: TE.t_expr) =
 
   
 (** Propagate_convert:
+    Fonction qui convertie les Op_ge et Op_gt en Op_le et Op_lt
+    De plus elle convertie tout les opérateurs en catégories:     
+    Calculateur|Comparateur|Combinateur|Branchement. 
     
     @params:            
     @return:
@@ -773,9 +778,8 @@ let rec propagate_convert (te: TE.t_expr) =
      Z_tuple(new_list)
      
 
-(** Convert: Fonction qui convertie les Op_ge et Op_gt en Op_le et Op_lt
-    De plus elle convertie tout les opérateurs en catégories:     
-    Calculateur|Comparateur|Combinateur|Branchement. 
+(** Convert: 
+    Fonction qui transforme une t_equation en z_equation.
     @params:            
     @return:
  **)
@@ -855,7 +859,6 @@ let generate_aez_node (tnode : Typed_ast.t_node) =
  **)
 let aezdify (ast_node: TE.t_node list) =
   debugging debug (fun () -> (Printf.printf "<Aezdify> begin\n"));
-
   fun_env.form_arr <- Array.make (List.length ast_node) [];
 
   Printf.printf "Taille de l'array: %d\nTaille de la liste de noeuds: %d\n"

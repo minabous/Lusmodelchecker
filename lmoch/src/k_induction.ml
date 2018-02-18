@@ -24,7 +24,7 @@ let delta_incr (n: Term.t) (formulas: (Smt.Term.t -> Aez.Smt.Formula.t) list) =
   Formula.make Formula.And eqs
   
   
-(* *************************************************************** *)
+(* ******************************************************************** *)
 (** p_incr: Génère la formule de conjonction entre toutes les formules
     de la forme out = true  pour le noeud en question.
     @param: Un terme n spécifiant l'étape d'induction ( 0, 1, puis n, n+1)
@@ -42,19 +42,18 @@ let p_incr (n: Term.t) (outs: z_var list) (symboles: Hstring.t Iota.t) =
      raise (Invalid_argument "p_incr")
   | [out] ->
      let sym = (Iota.find (fst out) symboles) in
-     Formula.make_lit Formula.Eq [Term.make_app sym [n] ; Term.t_true]
+     Formula.make_lit Formula.Eq [ Term.make_app sym [n] ; Term.t_true ]
   | _ ->
      Formula.make Formula.And
        (List.map
           (fun out_i ->
             let sym_i = (Iota.find (fst out_i) symboles) in
-            Formula.make_lit Formula.Eq [Term.make_app sym_i [n] ; Term.t_true])
+            Formula.make_lit Formula.Eq [ Term.make_app sym_i [n] ; Term.t_true ])
           outs) 
 
 
 (* *************************************************************** *)
 (* Cas de base *)
-
 (** assumes: Fonction qui intégres les formules dans les assomptions
              du solver, puis qui vérifie ces assomptions.
 
