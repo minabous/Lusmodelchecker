@@ -188,12 +188,12 @@ let check (node: z_node ) (k: int) =
 	                   Formula.make_lit Formula.Le [t_j ; n]
                          ]
             in 
-<            let eqs =
+            let eqs =
               let fmatch =
                 ( List.map
-                    (fun ({Ident.name=varr},_) -> 
+                    (fun (id, _) -> 
                       let var1 =
-                        Transform_aez.declare_symbol_ws node varr [] Type.type_int in
+                        Transform_aez.declare_symbol_ws node id.Ident.name [] Type.type_int in
                       Formula.make_lit Formula.Neq
                         [
                           Term.make_app (var1) [t_i] ;
@@ -224,11 +224,10 @@ let check (node: z_node ) (k: int) =
           | _ ->
              Printf.printf"Raise->IND_opti:Assumes: ?\n"
             
-        end;
+        end;   
+        (******************************************************************)
 
-   
-         (******************************************************************)
-         
+        
         begin
           try
             IND_solver.check()

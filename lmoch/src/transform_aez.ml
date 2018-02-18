@@ -412,7 +412,7 @@ let make_formula
         des fun_symboles (Ident.t <-> (Term.t -> Formula.t )
         Puis de déclarer un symbole : avec le nom id 
         (ou alors le déclarer dès le début quand on voit un
-        node...mhhh) *)
+        node..) *)
        
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = Z_app(%s, _)\n" (Hstring.view hsym) id.name));
@@ -458,11 +458,20 @@ let create_couple_var_ty
   (var, ty)
   
 
-(** description:
+(** Build_formula:
+    Fonction qui crée des "glaçons" de fonction dont l'appel sera effectué
+    au moment de la vérification dans le solver.
+    L'appel de ses fonctions va automatiquement créer les bonnes formules
+    avec le bon terme n qu'il faut.
     
     @params:            
     @return:
  **)
+(* Un soucis se pose pour les cas ou le noeud principal appelle d'autres noeuds.
+   L'appel étant effectué uniquement par le checker, seules les formules du noeud testé seront 
+   construitent. Si le noeud principal requiert des formules d'un autres noeuds,
+   les formules de celui ci ne seront jamais construites
+   Il faudra revoir le processus de construction... *)     
 let build_formula
       (node: z_node)
       (patt_ty: Ident.t * Asttypes.base_ty)
@@ -473,7 +482,9 @@ let build_formula
 
   
 (** Generate_fresh_var:
-    
+    Fonction qui génère un nouvel Ident auxi et déclare son symbole
+    (Etape de normalisation).
+
     @params:            
     @return:
  **)
@@ -504,7 +515,8 @@ let generate_fresh_var node =
   
 (** Normalize:Fonction qui effectue divers changement
     dans l'arbre de syntaxe typé:
-    1 - Transforme tous les opérateurs en
+    - Intègre les nouveaux symboles auxiliaires crées lié avec l'équation
+        qu'ils représentent si ces équations ne correspondent pas à des Term.t.
     
     @params:            
     @return:
@@ -646,9 +658,13 @@ let normalize
 (* Cette fonction créée la liste des formules pour construire
  le raisonnement kind par la suite. *)
 (** Equs_aez:
+    Fonction qui transforme les t_equations en z_equation
+    puis qui les convertie en "glaçons" (cf build_formula)
     
-    @params:            
-    @return:
+    
+    @params: Le z_node
+             Une t_equation
+    @return: (Smt.Term.t -> Smt.Formula.t) list
  **)
 let equs_aez (node:z_node) (equs: z_equation) =
   debugging debug (fun () -> (Printf.printf "\n<Equs_aez>\n"));
