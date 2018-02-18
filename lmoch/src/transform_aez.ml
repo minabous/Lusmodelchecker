@@ -107,7 +107,7 @@ let recup_2_truc zformulas =
   debugging debug (fun () -> (Printf.printf "    <recup_2_truc>\n"));
   let fs =
     match zformulas with
-    | [] -> failwith "transform_aez::make_formula:: Z_app() formula not found"
+    | [] -> failwith "transform_aez::recup_2_truc:: Z_app() formula not found"
     | fl -> fl
   in
   let rec aux l acc_t acc_f =
@@ -119,7 +119,7 @@ let recup_2_truc zformulas =
          | Term(t) -> acc_t@[t], acc_f
          | Form(f) -> acc_t, acc_f@[f]
          | Nothing ->
-            failwith "transform_aez::make_formula::Nor a term neight a formula"
+            failwith "transform_aez::recup_2_truc::Nor a term neither a formula"
        in
        aux tl tt ff
   in
@@ -411,20 +411,20 @@ let make_formula
        Formula.make_lit Formula.Eq
          [ Term.make_app hsym [n]; t ]
        
-    | Z_app(id, el) ->
-       (* L'idée ici c'est de find id dans la map
-        des fun_symboles (Ident.t <-> (Term.t -> Formula.t )
-        Puis de déclarer un symbole : avec le nom id 
-        (ou alors le déclarer dès le début quand on voit un
-        node..) *)
-       
-       let hsym = Iota.find sym node.symboles in
-       debugging debug (fun () -> (Printf.printf "%s = Z_app(%s, _)\n" (Hstring.view hsym) id.name));
-       let f_t = find_in_fun_env id fun_env in
-       let ts, fs = recup_2_truc f_t in
-       (* fun_env.form_arr.(node_id) <- fun_env.form_arr.(node_id)@[Term(t)]; *)
-       Formula.make_lit Formula.Eq
-         ([ Term.make_app hsym [n] ] @ ts)
+    (* | Z_app(id, el) ->
+     *    (\* L'idée ici c'est de find id dans la map
+     *     des fun_symboles (Ident.t <-> (Term.t -> Formula.t )
+     *     Puis de déclarer un symbole : avec le nom id 
+     *     (ou alors le déclarer dès le début quand on voit un
+     *     node..) *\)
+     *    
+     *    let hsym = Iota.find sym node.symboles in
+     *    debugging debug (fun () -> (Printf.printf "%s = Z_app(%s, _)\n" (Hstring.view hsym) id.name));
+     *    let f_t = find_in_fun_env id fun_env in
+     *    let ts, fs = recup_2_truc f_t in
+     *    (\* fun_env.form_arr.(node_id) <- fun_env.form_arr.(node_id)@[Term(t)]; *\)
+     *    Formula.make_lit Formula.Eq
+     *      ([ Term.make_app hsym [n] ] @ ts) *)
        
     | Z_tuple(_) ->
        let hsym = Iota.find sym node.symboles in
