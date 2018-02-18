@@ -150,56 +150,56 @@ let check (node: z_node ) (k: int) =
           | e -> Printf.printf "Raise->Ind:Assume: p_incr n\n"
         end;
         (**************************optimisation ::path compression****************************)
-        begin
-          try
-            let t_i =
-              Term.make_app (Transform_aez.declare_symbol_ws node "i" [] Type.type_int) [] in
-            let t_j =
-              Term.make_app (Transform_aez.declare_symbol_ws node "j" [] Type.type_int) [] in
-            
-            let left = Formula.make Formula.And 
-	                 [ 
-	                   Formula.make_lit Formula.Lt [t_i ; t_j] ; 
-	                   Formula.make_lit Formula.Le [t_j ; n]
-                         ]
-            in 
-            let eqs =
-              let fmatch =
-                ( List.map
-                    (fun ({Ident.name=varr},_) -> 
-                      let var1 =
-                        Transform_aez.declare_symbol_ws node varr [] Type.type_int in
-                      Formula.make_lit Formula.Neq
-                        [
-                          Term.make_app (var1) [t_i] ;
-                          Term.make_app (var1) [t_j]  
-                        ] 
-                    ) 
-                    (locs @ ins ) ) in
-              match fmatch with
-              | []  -> Formula.f_false
-              | [eq] -> Formula.make Formula.Imp [left ; eq]
-              | eqs -> Formula.make Formula.Imp [left ; Formula.make Formula.Or eqs ]
-            in          
-            IND_solver.assume ~id:0 eqs ;
-          with
-          | Smt.Error e ->
-             begin
-               Printf.printf"Raise->IND_opti:Assumes: ";
-               match e with
-               | Smt.DuplicateTypeName(hs)
-                 | Smt.DuplicateSymb(hs) ->
-                  Printf.printf"Duplicate Symbol or Type %s\n" (Hstring.view hs)
-               | Smt.UnknownType(hs)
-                 | Smt.UnknownSymb(hs) ->
-                  Printf.printf"Unknown Symbol or Type %s\n" (Hstring.view hs)
-             end
-          | Smt.Unsat il ->
-             Printf.printf"Raise->IND_opti:Assumes: Unsat\n"
-          | _ ->
-             Printf.printf"Raise->IND_opti:Assumes: ?\n"
-            
-        end;
+        (* begin
+ *           try
+ *             let t_i =
+ *               Term.make_app (Transform_aez.declare_symbol_ws node "i" [] Type.type_int) [] in
+ *             let t_j =
+ *               Term.make_app (Transform_aez.declare_symbol_ws node "j" [] Type.type_int) [] in
+ *             
+ *             let left = Formula.make Formula.And 
+ * 	                 [ 
+ * 	                   Formula.make_lit Formula.Lt [t_i ; t_j] ; 
+ * 	                   Formula.make_lit Formula.Le [t_j ; n]
+ *                          ]
+ *             in 
+ * <            let eqs =
+ *               let fmatch =
+ *                 ( List.map
+ *                     (fun ({Ident.name=varr},_) -> 
+ *                       let var1 =
+ *                         Transform_aez.declare_symbol_ws node varr [] Type.type_int in
+ *                       Formula.make_lit Formula.Neq
+ *                         [
+ *                           Term.make_app (var1) [t_i] ;
+ *                           Term.make_app (var1) [t_j]  
+ *                         ] 
+ *                     ) 
+ *                     (locs @ ins ) ) in
+ *               match fmatch with
+ *               | []  -> Formula.f_false
+ *               | [eq] -> Formula.make Formula.Imp [left ; eq]
+ *               | eqs -> Formula.make Formula.Imp [left ; Formula.make Formula.Or eqs ]
+ *             in          
+ *             IND_solver.assume ~id:0 eqs ;
+ *           with
+ *           | Smt.Error e ->
+ *              begin
+ *                Printf.printf"Raise->IND_opti:Assumes: ";
+ *                match e with
+ *                | Smt.DuplicateTypeName(hs)
+ *                  | Smt.DuplicateSymb(hs) ->
+ *                   Printf.printf"Duplicate Symbol or Type %s\n" (Hstring.view hs)
+ *                | Smt.UnknownType(hs)
+ *                  | Smt.UnknownSymb(hs) ->
+ *                   Printf.printf"Unknown Symbol or Type %s\n" (Hstring.view hs)
+ *              end
+ *           | Smt.Unsat il ->
+ *              Printf.printf"Raise->IND_opti:Assumes: Unsat\n"
+ *           | _ ->
+ *              Printf.printf"Raise->IND_opti:Assumes: ?\n"
+ *             
+ *         end; *)
 
    
          (******************************************************************)
