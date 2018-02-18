@@ -4,18 +4,25 @@ open Num
 open Typed_aez
 open Asttypes   
 module TE = Typed_ast
-          
-let fun_symboles = Phy.empty                 
+
+
+(* num_formula : Sert a identifier le numéro de la formule (debug) *)
+let num_formula = ref 1
 let id_fresh = ref 0
 let id_node = ref (-1)
 let id_node' = ref 0
 let debug = false
+
+
 let fun_env =
   {
     fun_name=[];
     form_arr=Array.make 0 [];
   }
-  
+
+
+
+(* ********************* UTILS *********************** *)
 (** Fonction de debugging. Si b = true
     alors la fonction f affiche son résultat.
     
@@ -25,8 +32,8 @@ let fun_env =
  **)
 let debugging b f =
   if b then f() else ()
+
   
-(* ********************* UTILS *********************** *)
 (** Fonction qui déclare un symbole Hstring
     à partir d'un Ident.t 
     
@@ -49,8 +56,11 @@ let declare_symbol_ws (node: z_node) (s: String.t) t_in t_out =
   Symbol.declare x t_in t_out;
   debugging debug (fun () -> (Printf.printf "(%s, %s)\n" s (Hstring.view x)));
   x
+(* ********************* UTILS *********************** *)
 
 
+
+(* *********************** AEZDIFY ************************* *)
 (** Var_aez:Fonction qui crée un couple Hstring.t, type
     permettant de garder l'information du type de la variable.
     
@@ -73,8 +83,13 @@ let var_aez (node: z_node) (input : TE.typed_var)
      | Asttypes.Treal ->
         declare_symbol node v [Type.type_int] Type.type_real;
         (v, ty)
+
+
+(* Les fonctions suivantes servent a récupérer 
+   les termes des formules avant leur fabrication.
+ mais il y a de meilleurs façon de gérer cela. *)
         
-let find_in_map_fun id fun_env =
+let find_in_fun_env id fun_env =
   let rec index id l i =
     match l with
     | [] -> -1
@@ -107,12 +122,12 @@ let recup_2_truc zformulas =
   aux zformulas [] []
   
   
-(** Matching Operator:
+(** Matching Operator: 
     Fonction qui permet de sélectionner le bon
     opérateur pour la construction des termes.
 
-    @params:            
-    @return:
+    @params: Asttypes.op            
+    @return: Term.operator | Formula.comparator | Formula.combinator
  **)
 let arith op = 
   match op with 
@@ -215,12 +230,14 @@ let rec formula_of
   | _ ->
      failwith "transform_aez::formula_of::Not Implemeted"
     
-(* *************************** AEZ Term ************************** *)
+(* ************************* AEZ Term ************************** *)
 (** Term_of:Fonction qui construit les termes
     rencontrés dans les équations.
     
-    @params:            
-    @return:
+    @params: Un z_node
+             Une z_expr_desc pour identifier le type de terme à produire.
+             Un Term.t qui représente le k du cas de base (0, 1) et pour l'induction.
+    @return: Un Term.t
  **)
 and term_of
 (node:z_node)
@@ -305,10 +322,11 @@ and term_of
     représentant "pattern = expr ", c'est à dire
     l'ensemble des formules décrivant le comportement
     d'un noeud.
-    @params:            
+    
+    @params: Un identifiant de noeud afin de constuire            
     @return:
  **)
-let num_formula = ref 1
+
 let make_formula
       (node_id: int)
       (node: z_node)
@@ -398,7 +416,7 @@ let make_formula
        
        let hsym = Iota.find sym node.symboles in
        debugging debug (fun () -> (Printf.printf "%s = Z_app(%s, _)\n" (Hstring.view hsym) id.name));
-       let f_t = find_in_map_fun id fun_env in
+       let f_t = find_in_fun_env id fun_env in
        let ts, fs = recup_2_truc f_t in
        (* fun_env.form_arr.(node_id) <- fun_env.form_arr.(node_id)@[Term(t)]; *)
        Formula.make_lit Formula.Eq

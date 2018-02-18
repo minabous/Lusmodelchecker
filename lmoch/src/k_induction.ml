@@ -27,8 +27,11 @@ let delta_incr (n: Term.t) (formulas: (Smt.Term.t -> Aez.Smt.Formula.t) list) =
 (* *************************************************************** *)
 (** p_incr: Génère la formule de conjonction entre toutes les formules
     de la forme out = true  pour le noeud en question.
-    @param:
-    @return:
+    @param: Un terme n spécifiant l'étape d'induction ( 0, 1, puis n, n+1)
+            La liste des variables de sortie.
+            Une Map dans laquelle est stocké l'ensemble des symboles
+            de type Hstring.t.
+    @return: Formula.t
  **)
 let p_incr (n: Term.t) (outs: z_var list) (symboles: Hstring.t Iota.t) =
   (* Donc ici on fait la séparation pour ne pas se retrouver
@@ -51,6 +54,15 @@ let p_incr (n: Term.t) (outs: z_var list) (symboles: Hstring.t Iota.t) =
 
 (* *************************************************************** *)
 (* Cas de base *)
+
+(** assumes: Fonction qui intégres les formules dans les assomptions
+             du solver, puis qui vérifie ces assomptions.
+
+    @param: Un constructeur de formules (delta_incr ou p_incr).
+            Une liste de formules.
+            Un k pour spécifier le k de l'induction.
+    @return : unit
+  *)
 let assumes goal formul_list k =
   Printf.printf "Assuming: Base case conditions\n"; 
   for i = 0 to k - 1 do
@@ -89,6 +101,16 @@ let init n f =
   in
   ini n []            
 
+
+(** entails: Fonction qui intégre au solver une conjonction des formules
+             a prouver et effectue la vérification de ces formules
+             en considérant les assomptions déja établies.
+             
+    @param: Un constructeur de formules (delta_incr ou p_incr).
+            Une liste de formules.
+            Un k pour spécifier le k de l'induction.
+    @return : boolean
+ *)
 let entails outs symboles =
   Printf.printf"Entailing: Base case conditions\n";
   let base =
@@ -98,13 +120,17 @@ let entails outs symboles =
     | e -> Printf.printf "Raise->Base:Entails delta_incr 0 1\n"; false
   in
   base
-           
-let check (node: z_node ) (k: int) =
-  (* On récupère le premier node aezdifier dans la liste des noeuds *)
-  (* De manière générale: Récupèrer le nom du node checker *)
-  (* A l'entrée du programme. *)
 
-  (* On récupère les variables de sorties *)
+(** chec: Fonction qui automatise la vérification d'un noeuds
+          en suivant le processus de la k induction :
+          Vérifier le cas de base, vérifier l'indiciton.
+
+    @param: Un z_noeud ayant déja des formules prêtes.
+            Un k pour spécifier le k de l'induction.
+    @return : unit
+  *)
+let check (node: z_node ) (k: int) =
+  (* On récupère les listes variables du noeuds*)
   let outs = node.node_output in
    let ins = node.node_input in
    let locs = node.node_vlocal in 
@@ -113,7 +139,6 @@ let check (node: z_node ) (k: int) =
   let formules = node.node_equs in
   try
     let base =
-      (*Printf.printf "Bounded Model Checking\n";*)
       assumes delta_incr formules k;
       entails outs node.symboles
     in
@@ -150,56 +175,56 @@ let check (node: z_node ) (k: int) =
           | e -> Printf.printf "Raise->Ind:Assume: p_incr n\n"
         end;
         (**************************optimisation ::path compression****************************)
-        (* begin
- *           try
- *             let t_i =
- *               Term.make_app (Transform_aez.declare_symbol_ws node "i" [] Type.type_int) [] in
- *             let t_j =
- *               Term.make_app (Transform_aez.declare_symbol_ws node "j" [] Type.type_int) [] in
- *             
- *             let left = Formula.make Formula.And 
- * 	                 [ 
- * 	                   Formula.make_lit Formula.Lt [t_i ; t_j] ; 
- * 	                   Formula.make_lit Formula.Le [t_j ; n]
- *                          ]
- *             in 
- * <            let eqs =
- *               let fmatch =
- *                 ( List.map
- *                     (fun ({Ident.name=varr},_) -> 
- *                       let var1 =
- *                         Transform_aez.declare_symbol_ws node varr [] Type.type_int in
- *                       Formula.make_lit Formula.Neq
- *                         [
- *                           Term.make_app (var1) [t_i] ;
- *                           Term.make_app (var1) [t_j]  
- *                         ] 
- *                     ) 
- *                     (locs @ ins ) ) in
- *               match fmatch with
- *               | []  -> Formula.f_false
- *               | [eq] -> Formula.make Formula.Imp [left ; eq]
- *               | eqs -> Formula.make Formula.Imp [left ; Formula.make Formula.Or eqs ]
- *             in          
- *             IND_solver.assume ~id:0 eqs ;
- *           with
- *           | Smt.Error e ->
- *              begin
- *                Printf.printf"Raise->IND_opti:Assumes: ";
- *                match e with
- *                | Smt.DuplicateTypeName(hs)
- *                  | Smt.DuplicateSymb(hs) ->
- *                   Printf.printf"Duplicate Symbol or Type %s\n" (Hstring.view hs)
- *                | Smt.UnknownType(hs)
- *                  | Smt.UnknownSymb(hs) ->
- *                   Printf.printf"Unknown Symbol or Type %s\n" (Hstring.view hs)
- *              end
- *           | Smt.Unsat il ->
- *              Printf.printf"Raise->IND_opti:Assumes: Unsat\n"
- *           | _ ->
- *              Printf.printf"Raise->IND_opti:Assumes: ?\n"
- *             
- *         end; *)
+        begin
+          try
+            let t_i =
+              Term.make_app (Transform_aez.declare_symbol_ws node "i" [] Type.type_int) [] in
+            let t_j =
+              Term.make_app (Transform_aez.declare_symbol_ws node "j" [] Type.type_int) [] in
+            
+            let left = Formula.make Formula.And 
+	                 [ 
+	                   Formula.make_lit Formula.Lt [t_i ; t_j] ; 
+	                   Formula.make_lit Formula.Le [t_j ; n]
+                         ]
+            in 
+<            let eqs =
+              let fmatch =
+                ( List.map
+                    (fun ({Ident.name=varr},_) -> 
+                      let var1 =
+                        Transform_aez.declare_symbol_ws node varr [] Type.type_int in
+                      Formula.make_lit Formula.Neq
+                        [
+                          Term.make_app (var1) [t_i] ;
+                          Term.make_app (var1) [t_j]  
+                        ] 
+                    ) 
+                    (locs @ ins ) ) in
+              match fmatch with
+              | []  -> Formula.f_false
+              | [eq] -> Formula.make Formula.Imp [left ; eq]
+              | eqs -> Formula.make Formula.Imp [left ; Formula.make Formula.Or eqs ]
+            in          
+            IND_solver.assume ~id:0 eqs ;
+          with
+          | Smt.Error e ->
+             begin
+               Printf.printf"Raise->IND_opti:Assumes: ";
+               match e with
+               | Smt.DuplicateTypeName(hs)
+                 | Smt.DuplicateSymb(hs) ->
+                  Printf.printf"Duplicate Symbol or Type %s\n" (Hstring.view hs)
+               | Smt.UnknownType(hs)
+                 | Smt.UnknownSymb(hs) ->
+                  Printf.printf"Unknown Symbol or Type %s\n" (Hstring.view hs)
+             end
+          | Smt.Unsat il ->
+             Printf.printf"Raise->IND_opti:Assumes: Unsat\n"
+          | _ ->
+             Printf.printf"Raise->IND_opti:Assumes: ?\n"
+            
+        end;
 
    
          (******************************************************************)
